@@ -10,7 +10,7 @@ import { Link } from '@inertiajs/vue3';
             <div class="flex items-center gap-4">
                 <Link href="/">
                     <div class="rounded-full bg-white p-1 shadow-lg">
-                        <img src="/images/deped-xi-seal.png" class="h-16 w-16" alt="DepEd Region XI" />
+                        <img src="/images/deped-xi-seal.png" class="h-16 w-16" alt="Schools Division Office Seal" />
                     </div>
                 </Link>
                 <div class="h-14 w-px bg-white/30"></div>
@@ -25,7 +25,7 @@ import { Link } from '@inertiajs/vue3';
                 <p class="text-xs font-medium text-white/60">Republic of the Philippines | Department of Education</p>
                 <h1 class="mt-1 text-2xl font-extrabold tracking-wide text-white">DepEd DART</h1>
                 <p class="text-sm text-white/70">Document Approval and Routing Tool</p>
-                <p class="text-xs text-white/50">Regional Office XI — Davao Region</p>
+                <p class="text-xs text-white/50">[Your Schools Division Office]</p>
             </div>
         </div>
 
@@ -36,7 +36,7 @@ import { Link } from '@inertiajs/vue3';
 
         <!-- Footer -->
         <p class="mt-8 text-xs text-white/40">
-            © 2026 Department of Education | Regional Office XI
+            © 2026 Department of Education | [Your Schools Division Office]
         </p>
     </div>
 </template>

@@ -20,8 +20,8 @@ class ArdAvailabilitySettingController extends Controller
         ]);
 
         $message = $available
-            ? 'ARD marked available again. Outgoing documents will go through ARD review as normal.'
-            : 'ARD marked unavailable. Outgoing documents will now skip ARD review and go directly to the RD.';
+            ? 'ASDS marked available again. Outgoing documents will go through ASDS review as normal.'
+            : 'ASDS marked unavailable. Outgoing documents will now skip ASDS review and go directly to the SDS.';
 
         return back()->with('success', $message);
     }

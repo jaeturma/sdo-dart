@@ -26,7 +26,7 @@ const STATUS_LABEL = {
     pending_unit_head_review: 'Pending Unit Head Review',
     pending_division_chief_review: 'Pending DC Review',
     pending_ard_review: 'Pending Recommending Approval',
-    pending_rd_review: 'Pending RD Review',
+    pending_rd_review: 'Pending SDS Review',
     approved: 'Approved', for_comment: 'For Comment',
     returned_for_revision: 'Returned', rejected: 'Rejected',
     pending_signature: 'Pending Signature', signed: 'Signed', released: 'Released',
@@ -82,7 +82,7 @@ const REVIEW_ACTION_LABEL = {
 
 // The one 'approved_forwarded' enum value covers four different roles, each
 // with its own correct terminology: a unit head or division chief reviews and
-// forwards, the ARD recommends approval, and only the RD actually approves.
+// forwards, the ASDS recommends approval, and only the SDS actually approves.
 const APPROVED_FORWARDED_LABEL_BY_ROLE = {
     unit_head:      'Reviewed & Forwarded',
     division_chief: 'Reviewed & Forwarded',
@@ -113,15 +113,15 @@ const ALL_REVIEW_STAGES = [
     { label: 'Submitted',      status: 'submitted' },
     { label: 'Unit Head',      status: 'pending_unit_head_review' },
     { label: 'Division Chief', status: 'pending_division_chief_review' },
-    { label: 'ARD',            status: 'pending_ard_review' },
-    { label: 'RD',             status: 'pending_rd_review' },
+    { label: 'ASDS',           status: 'pending_ard_review' },
+    { label: 'SDS',            status: 'pending_rd_review' },
     { label: 'Signed',         status: 'approved' },
 ];
 
 // Unit Head / Division Chief stages only appear in the chain if they were
 // actually part of it — either the document is currently sitting at that
 // stage, or a review was actually recorded for that role (e.g. uploads by a
-// unit head or division chief skip straight to ARD and never show either).
+// unit head or division chief skip straight to ASDS and never show either).
 const showUnitHeadStage = computed(() => {
     const reviews = props.document.reviews ?? [];
     return props.document.status === 'pending_unit_head_review'
@@ -134,7 +134,7 @@ const showDivisionChiefStage = computed(() => {
         || reviews.some(r => r.role_at_review === 'division_chief');
 });
 
-// ARD is skipped for a document entirely when the ARD-availability toggle
+// ASDS is skipped for a document entirely when the ASDS-availability toggle
 // was off at the time it passed division-chief-level review (or on
 // self-upload by a unit head/division chief) — see
 // ArdAvailabilitySetting::nextAfterDivisionChief(). Same detection pattern
@@ -190,7 +190,7 @@ watch(() => props.document.id, () => {
 const remarksRequiredForAction = computed(() =>
     ['for_comment', 'returned_for_revision', 'rejected'].includes(reviewForm.action));
 
-// The RD may submit remarks alone with no action selected — her own remarks
+// The SDS may submit remarks alone with no action selected — her own remarks
 // already imply "send it back" regardless (see DocumentReviewController::
 // store()'s remarks-win rule), so requiring an explicit pick would just be
 // friction. Every other stage/role still must pick an action, and if that
@@ -202,7 +202,7 @@ const canSubmitReview = computed(() => {
 });
 
 // Same 'approved_forwarded' action, worded per the current stage: the chief
-// reviews and forwards, the ARD recommends approval, and only the RD approves.
+// reviews and forwards, the ASDS recommends approval, and only the SDS approves.
 const approveActionLabel = computed(() => {
     switch (props.document.status) {
         case 'pending_rd_review':             return 'Approve';
@@ -253,7 +253,7 @@ const confirmUndoSignature = () => {
     });
 };
 
-// ── Return to Owner confirmation (secretary catching an overlooked RD comment) ─
+// ── Return to Owner confirmation (secretary catching an overlooked SDS comment) ─
 const showReturnToOwnerConfirm = ref(false);
 const returnToOwnerForm = useForm({ remarks: '' });
 const confirmReturnToOwner = () => {
@@ -843,13 +843,13 @@ const complete = () => {
                         </div>
                     </div>
 
-                    <!-- ── Secretary: RD left a comment that was never acted on ── -->
+                    <!-- ── Secretary: SDS left a comment that was never acted on ── -->
                     <div v-if="canReturnToOwner" class="overflow-hidden rounded-lg border-2 border-red-200 bg-white shadow-sm">
                         <div class="border-b border-red-100 bg-red-50 px-6 py-4 flex items-start justify-between gap-4">
                             <div>
-                                <h3 class="text-base font-semibold text-red-800">RD Left a Comment — Not Returned</h3>
+                                <h3 class="text-base font-semibold text-red-800">SDS Left a Comment — Not Returned</h3>
                                 <p class="mt-0.5 text-sm text-red-700">
-                                    The RD's own review has remarks (see Review History below), but the document was
+                                    The SDS's own review has remarks (see Review History below), but the document was
                                     approved instead of sent back for revision. If this looks like an oversight, you
                                     can return it to the owner now instead of signing it.
                                 </p>
@@ -896,7 +896,7 @@ const complete = () => {
                             <div>
                                 <h3 class="text-base font-semibold text-purple-800">Attach Digital Signature</h3>
                                 <p class="mt-0.5 text-sm text-purple-600">
-                                    The RD has approved this document. Attach the PNPKI digital certificate to finalize it.
+                                    The SDS has approved this document. Attach the PNPKI digital certificate to finalize it.
                                     The signed file will be tamper-evident.
                                 </p>
                             </div>
@@ -930,7 +930,7 @@ const complete = () => {
                         </div>
                     </div>
 
-                    <!-- ── Review form (all reviewers: unit_head, DC, ARD, RD) ── -->
+                    <!-- ── Review form (all reviewers: unit_head, DC, ASDS, SDS) ── -->
                     <div v-if="canReview" class="overflow-hidden rounded-lg border-2 border-blue-200 bg-white shadow-sm">
                         <div class="border-b border-blue-100 bg-blue-50 px-6 py-4">
                             <h3 class="text-base font-semibold text-blue-800">Submit Your Review</h3>
@@ -993,7 +993,7 @@ const complete = () => {
                 <!-- ── Incoming: Routing Info ─────────────────────────────── -->
                 <template v-if="document.type === 'incoming'">
 
-                    <!-- Route button for RD/ARD/division_chief -->
+                    <!-- Route button for SDS/ASDS/division_chief -->
                     <div v-if="canRoute" class="overflow-hidden rounded-lg border-2 border-indigo-200 bg-indigo-50 shadow-sm px-6 py-5 flex items-center justify-between">
                         <div>
                             <h3 class="text-base font-semibold text-indigo-900">Ready to Route</h3>
@@ -1270,7 +1270,7 @@ const complete = () => {
                             <h3 class="text-base font-semibold text-gray-900">Undo Signature</h3>
                             <p class="mt-1 text-sm text-gray-600">
                                 This returns <strong>{{ document.title }}</strong> to <strong>Approved</strong> so you can sign it again —
-                                use this if the RD's signature was placed incorrectly. The previous signed copy stays on record.
+                                use this if the SDS's signature was placed incorrectly. The previous signed copy stays on record.
                             </p>
                             <div class="mt-3">
                                 <label for="undo_signature_remarks" class="mb-1 block text-xs font-medium text-gray-700">
@@ -1344,7 +1344,7 @@ const complete = () => {
                                     v-model="returnToOwnerForm.remarks"
                                     rows="2"
                                     class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm text-gray-900 focus:border-red-500 focus:ring-red-500"
-                                    placeholder="e.g. see the RD's earlier comment above"
+                                    placeholder="e.g. see the SDS's earlier comment above"
                                 />
                             </div>
                         </div>

@@ -23,7 +23,7 @@ const STATUS_LABEL = {
     pending_unit_head_review:      'Pending Unit Head Review',
     pending_division_chief_review: 'Pending DC Review',
     pending_ard_review:            'Pending Recommending Approval',
-    pending_rd_review:             'Pending RD Review',
+    pending_rd_review:             'Pending SDS Review',
     approved:                      'Approved',
     for_comment:                   'For Comment',
     returned_for_revision:         'Returned',
@@ -113,8 +113,8 @@ const clearSearch = () => { search.value = ''; };
 const TABS = computed(() => {
     const tabs = [];
 
-    // The RD's queue is split into two focused lists instead of one mixed
-    // "For Action" tab — everyone else keeps the combined view. For the RD,
+    // The SDS's queue is split into two focused lists instead of one mixed
+    // "For Action" tab — everyone else keeps the combined view. For the SDS,
     // her action queues lead (left) and the document lists follow (right),
     // since that's what she reaches for first.
     if (props.isRd) {
@@ -163,7 +163,7 @@ const emptyMessage = computed(() => props.search
 const showTypeCol = computed(() => props.tab === 'for_action');
 
 // "Needs action" visual treatment (orange highlight) applies to the combined
-// For Action tab and to both of its RD-only split-out tabs.
+// For Action tab and to both of its SDS-only split-out tabs.
 const ACTION_TABS = ['for_action', 'for_approval', 'for_routing'];
 const isActionTab = computed(() => ACTION_TABS.includes(props.tab));
 
@@ -202,7 +202,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onPreviewKeyDown));
 // ── Review action (Submit Review, when previewDoc.can_review) ───────────────
 const reviewForm = useForm({ action: '', remarks: '' });
 
-// The RD may submit remarks alone with no action selected — her own remarks
+// The SDS may submit remarks alone with no action selected — her own remarks
 // already imply "send it back" regardless (see DocumentReviewController::
 // store()'s remarks-win rule), so requiring an explicit pick would just be
 // friction. Every other stage/role still must pick an action.
@@ -441,7 +441,7 @@ watch(showPreviewModal, (open) => {
                 <!-- ── Tabs ──────────────────────────────────────────────────── -->
                 <!-- Scrolls horizontally on narrow screens instead of squeezing every
                      tab evenly (flex-1) into the viewport — with enough tabs (e.g. the
-                     RD's Outgoing/Incoming/For Approval/For Routing), that used to clip
+                     SDS's Outgoing/Incoming/For Approval/For Routing), that used to clip
                      the trailing tabs' badge counts off-screen entirely. -->
                 <div class="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
                     <button

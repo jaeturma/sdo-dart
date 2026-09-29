@@ -11,8 +11,8 @@ const formatDate = iso => iso
     : '—';
 
 const ROLE_LABEL = {
-    rd:             'RD',
-    ard:            'ARD',
+    rd:             'SDS',
+    ard:            'ASDS',
     division_chief: 'Division Chief',
 };
 

@@ -19,7 +19,7 @@ const STATUS_LABEL = {
     pending_unit_head_review:      'Pending Unit Head Review',
     pending_division_chief_review: 'Pending DC Review',
     pending_ard_review:            'Pending Recommending Approval',
-    pending_rd_review:             'Pending RD Review',
+    pending_rd_review:             'Pending SDS Review',
     approved:                      'Approved',
     for_comment:                   'For Comment',
     returned_for_revision:         'Returned',

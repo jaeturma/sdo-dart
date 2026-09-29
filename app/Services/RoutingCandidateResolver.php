@@ -18,7 +18,7 @@ use Illuminate\Support\Collection;
 class RoutingCandidateResolver
 {
     // Prescribed display order for division chiefs
-    private const CHIEF_ORDER = ['CLMD', 'ESSD', 'QAD', 'FTAD', 'HRDD', 'PPRD', 'AD', 'FD'];
+    private const CHIEF_ORDER = ['CID', 'SGOD'];
 
     public static function forUser(User $user): Collection
     {

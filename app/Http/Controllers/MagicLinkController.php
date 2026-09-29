@@ -14,7 +14,7 @@ class MagicLinkController extends Controller
     public function generate(Request $request, User $targetUser): RedirectResponse
     {
         abort_unless($request->user()->hasRole('admin'), 403);
-        abort_unless($targetUser->hasAnyRole(['rd', 'ard']), 403, 'Magic links can only be generated for the RD or ARD.');
+        abort_unless($targetUser->hasAnyRole(['rd', 'ard']), 403, 'Magic links can only be generated for the SDS or ASDS.');
 
         $url = route('magic-login', [
             'uid'       => $targetUser->id,

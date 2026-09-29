@@ -129,7 +129,7 @@ const submit = () => {
                                     >{{ div.depth > 0 ? '　└ ' : '' }}{{ div.label }}</option>
                                 </select>
                                 <p v-if="form.role === 'detailed_staff'" class="mt-1 text-xs text-gray-500">
-                                    Not applicable — detailed staff aren't tied to a Regional Office division.
+                                    Not applicable — detailed staff aren't tied to a Schools Division Office division.
                                 </p>
                                 <p v-if="form.errors.division_id" class="mt-1 text-sm text-red-600">{{ form.errors.division_id }}</p>
                             </div>

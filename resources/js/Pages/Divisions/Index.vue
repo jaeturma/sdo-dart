@@ -81,7 +81,7 @@ const clearSearch = () => { search.value = ''; };
                                 <th class="px-6 py-3">Name</th>
                                 <th class="px-6 py-3">Code</th>
                                 <th class="px-6 py-3">Parent Office</th>
-                                <th class="px-6 py-3">Direct RD Routing</th>
+                                <th class="px-6 py-3">Direct SDS Routing</th>
                                 <th class="px-6 py-3">Users</th>
                                 <th class="px-6 py-3">Documents</th>
                                 <th class="px-6 py-3"><span class="sr-only">Actions</span></th>

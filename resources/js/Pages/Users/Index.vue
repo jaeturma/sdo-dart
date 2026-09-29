@@ -127,7 +127,7 @@ const copyPassword = async () => {
 
 const rotateForm = useForm({});
 const rotateKey = () => {
-    if (! confirm('Rotate the magic link key? Every previously generated RD login link will stop working immediately.')) return;
+    if (! confirm('Rotate the magic link key? Every previously generated SDS login link will stop working immediately.')) return;
     rotateForm.post(route('magic-link-secret.rotate'));
 };
 
@@ -168,8 +168,8 @@ const toggleEmailVerification = () => {
 const ardAvailabilityForm = useForm({});
 const toggleArdAvailability = () => {
     const message = props.ardAvailable
-        ? 'Mark ARD as unavailable? Outgoing documents will skip ARD review entirely and go straight from the division chief to the RD until this is turned back on.'
-        : 'Mark ARD as available again? Outgoing documents will go through ARD review as normal.';
+        ? 'Mark ASDS as unavailable? Outgoing documents will skip ASDS review entirely and go straight from the division chief to the SDS until this is turned back on.'
+        : 'Mark ASDS as available again? Outgoing documents will go through ASDS review as normal.';
     if (! confirm(message)) return;
     ardAvailabilityForm.post(route('ard-availability-setting.toggle'));
 };
@@ -319,13 +319,13 @@ const clearSearch = () => { search.value = ''; };
                     >{{ emailVerificationEnforced ? 'Make Optional' : 'Make Required' }}</button>
                 </div>
 
-                <!-- ── ARD availability ────────────────────────────────────── -->
+                <!-- ── ASDS availability ────────────────────────────────────── -->
                 <div class="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                     <div>
-                        <p class="text-sm font-semibold text-gray-800">ARD Availability</p>
+                        <p class="text-sm font-semibold text-gray-800">ASDS Availability</p>
                         <p class="mt-1 text-xs text-gray-500">
-                            <span v-if="ardAvailable">Outgoing documents go through ARD review as normal.</span>
-                            <span v-else>ARD marked unavailable — outgoing documents skip ARD and go straight to the RD.</span>
+                            <span v-if="ardAvailable">Outgoing documents go through ASDS review as normal.</span>
+                            <span v-else>ASDS marked unavailable — outgoing documents skip ASDS and go straight to the SDS.</span>
                         </p>
                     </div>
                     <button

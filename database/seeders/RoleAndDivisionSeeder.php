@@ -19,51 +19,34 @@ class RoleAndDivisionSeeder extends Seeder
         // Users admin UI, never the main role <select>.
         //
         // 'detailed_staff' ("Detailed Official") is for staff temporarily
-        // detailed/seconded to the Regional Office from elsewhere (e.g. a
-        // School Division Office) who don't fit anywhere in this app's
-        // Division hierarchy — assigned with no division_id. They can
-        // originate their own outgoing documents (routed the same as a
-        // division chief's own upload — see OutgoingDocumentController::
-        // initialStatus()) and receive incoming documents routed to them by
-        // the RD/her ORD secretary (see RoutingCandidateResolver), but
-        // cannot issue routings themselves and cannot upload incoming
-        // documents — see DocumentPolicy::createOutgoing()/route().
+        // detailed/seconded to this Schools Division Office from elsewhere
+        // (e.g. a school, or another division office) who don't fit
+        // anywhere in this app's Division hierarchy — assigned with no
+        // division_id. They can originate their own outgoing documents
+        // (routed the same as a division chief's own upload — see
+        // OutgoingDocumentController::initialStatus()) and receive incoming
+        // documents routed to them by the SDS/her secretary (see
+        // RoutingCandidateResolver), but cannot issue routings themselves
+        // and cannot upload incoming documents — see
+        // DocumentPolicy::createOutgoing()/route().
         $roles = ['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'kmt_focal', 'detailed_staff'];
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        // Top-level divisions
+        // Top-level divisions. Only these three are seeded — this Schools
+        // Division Office's admin adds any sub-units afterward via Office
+        // Management. OSDS keeps the literal code 'ORD' (an internal
+        // identifier several behaviors key off — see DivisionSeeder.php's
+        // comment for why), not a renamed one.
         $topLevel = [
-            ['code' => 'ORD',  'name' => 'Office of the Regional Director'],
-            ['code' => 'CLMD', 'name' => 'Curriculum and Learning Management Division'],
-            ['code' => 'ESSD', 'name' => 'Education Support Services Division'],
-            ['code' => 'QAD',  'name' => 'Quality Assurance Division'],
-            ['code' => 'FTAD', 'name' => 'Field Technical Assistance Division'],
-            ['code' => 'HRDD', 'name' => 'Human Resource Development Division'],
-            ['code' => 'PPRD', 'name' => 'Planning and Policy Research Division'],
-            ['code' => 'AD',   'name' => 'Administrative Division'],
-            ['code' => 'FD',   'name' => 'Finance Division'],
+            ['code' => 'ORD',  'name' => 'Office of the Schools Division Superintendent'],
+            ['code' => 'CID',  'name' => 'Curriculum Implementation Division'],
+            ['code' => 'SGOD', 'name' => 'School Governance and Operations Division'],
         ];
 
         foreach ($topLevel as $attrs) {
             Division::firstOrCreate(['code' => $attrs['code']], ['name' => $attrs['name']]);
-        }
-
-        // Sub-units under ORD
-        $ord = Division::where('code', 'ORD')->first();
-        $ordUnits = [
-            ['code' => 'ORDP', 'name' => 'ORD Proper'],
-            ['code' => 'ICTU', 'name' => 'Information and Communications Technology Unit'],
-            ['code' => 'LU',   'name' => 'Legal Unit'],
-            ['code' => 'PAU',  'name' => 'Public Affairs Unit'],
-        ];
-
-        foreach ($ordUnits as $attrs) {
-            Division::firstOrCreate(
-                ['code' => $attrs['code']],
-                ['name' => $attrs['name'], 'parent_id' => $ord->id]
-            );
         }
 
         // Seed a local admin user for first-run dev access

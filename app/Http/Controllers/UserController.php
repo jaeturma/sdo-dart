@@ -24,8 +24,8 @@ class UserController extends Controller
 {
     private const ROLES = [
         'admin' => 'Admin',
-        'rd' => 'Regional Director',
-        'ard' => 'Assistant Regional Director',
+        'rd' => 'Schools Division Superintendent',
+        'ard' => 'Assistant Schools Division Superintendent',
         'division_chief' => 'Division Chief',
         'unit_head' => 'Unit / Section Head',
         'originator' => 'Staff / Originator',

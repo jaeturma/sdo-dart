@@ -43,7 +43,7 @@ class DocumentSignatureController extends Controller
             'documentUrl' => route('documents.file', $document),
             'esigUrl' => $esigUrl,
             'credential' => [
-                'signer_name' => $credential->user?->name ?? 'Regional Director',
+                'signer_name' => $credential->user?->name ?? 'Schools Division Superintendent',
                 'certificate_subject' => $credential->certificate_subject,
                 'certificate_serial' => $credential->certificate_serial,
                 'certificate_valid_until' => $credential->certificate_valid_until?->toIso8601String(),

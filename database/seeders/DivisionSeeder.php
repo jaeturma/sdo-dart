@@ -10,67 +10,45 @@ class DivisionSeeder extends Seeder
 {
     public function run(): void
     {
-        // Wipe placeholder data; nullOnDelete on users.division_id keeps user rows intact
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        Division::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        // Wipe placeholder data; nullOnDelete on users.division_id keeps user
+        // rows intact. SET FOREIGN_KEY_CHECKS is MySQL-only syntax — the
+        // test suite and a fresh .env.example both default to sqlite, which
+        // has no equivalent statement (and doesn't need one: truncate()
+        // doesn't trip FK checks there the way it does under MySQL).
+        $isMysql = DB::connection()->getDriverName() === 'mysql';
 
-        // Top-level divisions
+        if ($isMysql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        }
+
+        Division::truncate();
+
+        if ($isMysql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        // Top-level divisions. Only these three are seeded — this Schools
+        // Division Office's admin adds any sub-units (e.g. an "OSDS Proper"
+        // or Records Section equivalent) afterward via the Office
+        // Management screen (DivisionController/Divisions/Form.vue), the
+        // same dynamic mechanism already used for allow_rd_direct_routing.
+        //
+        // OSDS keeps the literal code 'ORD' rather than a renamed one —
+        // several behaviors (the secretary's "acts on the SDS's behalf"
+        // powers, an ORD-sub-unit head's review-skip, etc.) key off this
+        // exact string across ~10 call sites (see isOrdSecretary() and its
+        // duplicates). Renaming the code itself would mean updating every
+        // one of those call sites for what's ultimately a cosmetic detail —
+        // the code is an internal identifier, not a user-facing label (the
+        // name field is what's actually shown to staff).
         $topLevel = [
-            ['name' => 'Office of the Regional Director',          'code' => 'ORD'],
-            ['name' => 'Curriculum & Learning Management Division', 'code' => 'CLMD'],
-            ['name' => 'Education Support Services Division',       'code' => 'ESSD'],
-            ['name' => 'Field Technical Assistance Division',       'code' => 'FTAD'],
-            ['name' => 'Quality Assurance Division',                'code' => 'QAD'],
-            ['name' => 'Policy, Planning & Research Division',      'code' => 'PPRD'],
-            ['name' => 'Human Resource & Development Division',     'code' => 'HRDD'],
-            ['name' => 'Finance Division',                          'code' => 'FD'],
-            ['name' => 'Administrative Division',                   'code' => 'AD'],
+            ['name' => 'Office of the Schools Division Superintendent', 'code' => 'ORD'],
+            ['name' => 'Curriculum Implementation Division', 'code' => 'CID'],
+            ['name' => 'School Governance and Operations Division', 'code' => 'SGOD'],
         ];
 
         foreach ($topLevel as $data) {
             Division::create($data);
-        }
-
-        // Units / sections under ORD
-        $ord = Division::where('code', 'ORD')->first();
-        $ordUnits = [
-            'Legal Unit',
-            'Public Affairs Unit',
-            'Information and Communication Technology Unit',
-            'Office of the Regional Director Proper',
-            'Office of the Assistant Regional Director',
-        ];
-        foreach ($ordUnits as $name) {
-            Division::create([
-                'name' => $name,
-                // Unlike its ORD-sub-unit siblings, OARD has no unit head of
-                // its own — its staff report directly to the ARD — so it
-                // needs a stable code (matching ORD/ORDP/RS's convention) for
-                // OutgoingDocumentController::initialStatus() to route their
-                // uploads straight to ARD review.
-                'code' => $name === 'Office of the Assistant Regional Director' ? 'OARD' : null,
-                'parent_id' => $ord->id,
-            ]);
-        }
-
-        // Sections / units under Administrative Division
-        $ad = Division::where('code', 'AD')->first();
-        $adUnits = [
-            'General Services Unit',
-            'Asset Management Section',
-            'Cash Section',
-            'Personnel Section',
-            'Procurement Unit',
-            'Records Section',
-            'Payroll Services Unit',
-        ];
-        foreach ($adUnits as $name) {
-            Division::create([
-                'name'      => $name,
-                'code'      => $name === 'Records Section' ? 'RS' : null,
-                'parent_id' => $ad->id,
-            ]);
         }
     }
 }

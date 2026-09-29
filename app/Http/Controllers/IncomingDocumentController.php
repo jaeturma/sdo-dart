@@ -71,7 +71,7 @@ class IncomingDocumentController extends Controller
             // Surface this immediately instead of letting it fail silently —
             // a misconfigured/missing Records Section division means the
             // document never gets routed and Records Section never sees it.
-            return $response->with('warning', 'Document uploaded, but could not be auto-forwarded to Records Section — that division is not configured correctly. Please notify an administrator; the document is still visible to the RD.');
+            return $response->with('warning', 'Document uploaded, but could not be auto-forwarded to Records Section — that division is not configured correctly. Please notify an administrator; the document is still visible to the SDS.');
         }
 
         return $response->with('success', 'Incoming document uploaded.');

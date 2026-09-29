@@ -19,12 +19,12 @@ defineProps({
             <header class="flex items-center justify-between px-6 py-4 lg:px-12">
                 <div class="flex items-center gap-3">
                     <div class="shrink-0 rounded-full bg-white p-0.5">
-                        <img src="/images/deped-xi-seal.png" class="h-10 w-10" alt="DepEd Region XI Seal" />
+                        <img src="/images/deped-xi-seal.png" class="h-10 w-10" alt="Schools Division Office Seal" />
                     </div>
                     <div class="leading-tight text-white">
                         <p class="text-xs font-medium opacity-70">Republic of the Philippines</p>
                         <p class="text-sm font-semibold">Department of Education</p>
-                        <p class="text-xs opacity-60">Regional Office XI — Davao Region</p>
+                        <p class="text-xs opacity-60">[Your Schools Division Office]</p>
                     </div>
                 </div>
 
@@ -60,11 +60,11 @@ defineProps({
                     DepEd <span class="text-yellow-300">DART</span>
                 </h1>
                 <p class="mt-2 text-lg font-medium text-white/80">Document Approval and Routing Tool</p>
-                <p class="text-sm text-white/60">for DepEd Regional Office XI</p>
+                <p class="text-sm text-white/60">for [Your Schools Division Office]</p>
 
                 <p class="mt-6 max-w-md text-sm leading-relaxed text-white/70">
                     Digitize, track, and securely approve documents from initial submission
-                    through division review, regional director sign-off, and digital signature.
+                    through division review, SDS sign-off, and digital signature.
                 </p>
 
                 <Link
@@ -119,7 +119,7 @@ defineProps({
                         </div>
                         <h3 class="text-base font-semibold text-gray-900">Review & Approve</h3>
                         <p class="mt-2 text-sm leading-relaxed text-gray-500">
-                            Structured review chain from Division Chief through Assistant Regional Director to Regional Director, with remarks and return-for-revision support.
+                            Structured review chain from Division Chief through Assistant Schools Division Superintendent to Schools Division Superintendent, with remarks and return-for-revision support.
                         </p>
                     </div>
 
@@ -142,7 +142,7 @@ defineProps({
 
         <!-- ── Footer ──────────────────────────────────────────────── -->
         <footer class="bg-[#001F5B] px-6 py-5 text-center text-sm text-white/50">
-            © 2026 Department of Education | Regional Office XI — Davao Region
+            © 2026 Department of Education | [Your Schools Division Office]
             <span class="mx-2 opacity-30">·</span>
             DepEd DART v1.0
         </footer>

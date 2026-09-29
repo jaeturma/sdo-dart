@@ -93,7 +93,7 @@ class DocumentReleaseStamper
             esigAbsolutePath: $credential->esig_path ? Storage::disk('credentials')->path($credential->esig_path) : null,
             signerName: $credential->user?->name ?? 'Records Section',
             reason: 'Document released by Records Section',
-            location: 'CHED Caraga Region',
+            location: '[Your Schools Division Office]',
             includeDetails: true,
             signedAt: new \DateTime,
             outputAbsolutePath: $absolutePath,

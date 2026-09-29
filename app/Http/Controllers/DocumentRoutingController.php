@@ -24,7 +24,7 @@ use Inertia\Response;
 class DocumentRoutingController extends Controller
 {
     private const ROLE_LABELS = [
-        'ard' => 'Assistant Regional Director',
+        'ard' => 'Assistant Schools Division Superintendent',
         'division_chief' => 'Division Chief',
         'unit_head' => 'Unit / Section Head',
         'originator' => 'Staff',

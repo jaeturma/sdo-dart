@@ -32,7 +32,7 @@ const pdfError     = ref(null);
 // ── Signature overlay state ──────────────────────────────────────────────────
 // sigBox is the *draft* placement currently being positioned — it isn't part
 // of the submission until "Add Signature Here" pushes it into form.placements.
-// This lets the secretary place the RD's signature more than once — on the
+// This lets the secretary place the SDS's signature more than once — on the
 // same page, or across several pages — for documents that need it.
 const sigBox = ref({ left: 30, top: 70, width: 20 }); // percent values, relative to canvas
 const isDragging   = ref(false);
@@ -345,7 +345,7 @@ const formatDate = d => d
                         <div class="overflow-hidden rounded-lg bg-white shadow-sm">
                             <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                                 <h3 class="text-sm font-semibold text-gray-700">
-                                    Drag the RD's signature to the correct position on the page
+                                    Drag the SDS's signature to the correct position on the page
                                 </h3>
                                 <!-- Page navigation -->
                                 <div v-if="totalPages > 1" class="flex items-center gap-2 text-sm">
@@ -420,7 +420,7 @@ const formatDate = d => d
                                                 v-if="esigUrl"
                                                 :src="esigUrl"
                                                 class="w-full h-auto pointer-events-none select-none block"
-                                                alt="RD's e-signature"
+                                                alt="SDS's e-signature"
                                             />
                                             <!-- Placeholder when no e-sig image -->
                                             <div
@@ -438,7 +438,7 @@ const formatDate = d => d
                                                 :src="esigUrl"
                                                 class="h-auto shrink-0 block"
                                                 style="width: 40%"
-                                                alt="RD's e-signature"
+                                                alt="SDS's e-signature"
                                             />
                                             <div v-else class="flex h-10 shrink-0 items-center justify-center text-[10px] text-blue-500 font-medium" style="width: 40%">
                                                 [Signature]
@@ -465,7 +465,7 @@ const formatDate = d => d
                             <div class="flex flex-col gap-2 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                 <p class="text-xs text-gray-500">
                                     Drag the blue box to reposition, pull the right edge to resize, then add it.
-                                    You can add the RD's signature more than once — on this page or others.
+                                    You can add the SDS's signature more than once — on this page or others.
                                 </p>
                                 <div class="flex shrink-0 gap-2">
                                     <button
@@ -581,7 +581,7 @@ const formatDate = d => d
                             <div class="border-b border-purple-100 bg-purple-50 px-4 py-3">
                                 <h3 class="text-sm font-semibold text-purple-800">Sign</h3>
                                 <p class="mt-0.5 text-xs text-purple-600">
-                                    Enter the RD's P12 password to digitally sign this document.
+                                    Enter the SDS's P12 password to digitally sign this document.
                                     The resulting PDF will be tamper-evident.
                                 </p>
                             </div>
@@ -591,7 +591,7 @@ const formatDate = d => d
                                 <!-- P12 password -->
                                 <div>
                                     <label for="p12_password" class="mb-1.5 block text-sm font-medium text-gray-900">
-                                        RD's P12 Certificate Password <span class="text-red-500">*</span>
+                                        SDS's P12 Certificate Password <span class="text-red-500">*</span>
                                     </label>
                                     <input
                                         id="p12_password"
@@ -599,7 +599,7 @@ const formatDate = d => d
                                         type="password"
                                         autocomplete="current-password"
                                         class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-purple-500 focus:ring-purple-500"
-                                        placeholder="Enter the RD's certificate password"
+                                        placeholder="Enter the SDS's certificate password"
                                         required
                                     />
                                     <p v-if="form.errors.p12_password" class="mt-1 text-sm text-red-600">{{ form.errors.p12_password }}</p>

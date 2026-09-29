@@ -99,13 +99,13 @@ const submit = () => {
                                 <p v-if="form.errors.parent_id" class="mt-1 text-sm text-red-600">{{ form.errors.parent_id }}</p>
                             </div>
 
-                            <!-- Allow RD to route directly to this unit's head -->
+                            <!-- Allow SDS to route directly to this unit's head -->
                             <div>
                                 <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 text-sm has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                                     <input type="checkbox" v-model="form.allow_rd_direct_routing" class="mt-0.5" />
                                     <span>
-                                        <span class="block font-medium text-gray-900">Allow RD to Route Directly to This Unit's Head</span>
-                                        <span class="block text-gray-500">When enabled, the RD (and her secretary) can route an incoming document straight to this office's unit head, the same way she routes to a division chief — not only through the parent office's chief first. Only meaningful for a sub-office with its own unit head (e.g. ICTU, Legal Unit, or a unit like NEAP under HRDD).</span>
+                                        <span class="block font-medium text-gray-900">Allow SDS to Route Directly to This Unit's Head</span>
+                                        <span class="block text-gray-500">When enabled, the SDS (and her secretary) can route an incoming document straight to this office's unit head, the same way she routes to a division chief — not only through the parent office's chief first. Only meaningful for a sub-office with its own unit head (e.g. a unit under CID or SGOD).</span>
                                     </span>
                                 </label>
                                 <p v-if="form.errors.allow_rd_direct_routing" class="mt-1 text-sm text-red-600">{{ form.errors.allow_rd_direct_routing }}</p>
