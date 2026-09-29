@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* iOS Safari auto-zooms the page when a focused form field's font-size is
+   under 16px (e.g. the text-sm remarks textareas RD uses to review/route
+   documents). Floor it at 16px only on small screens so desktop sizing is
+   untouched. !important is required: a bare element selector like `input`
+   is lower specificity than the `.text-sm` class already on these fields,
+   so without it the utility class would keep winning. */
+@media (max-width: 767px) {
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+}

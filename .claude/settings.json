@@ -1,0 +1,50 @@
+                                                                                                                                                                            {
+  "permissions": {
+    "allow": [
+      "Bash('C:\\\\Users\\\\ICTU/.config/herd/bin/php.bat' artisan *)",
+      "Bash(rm -f \"C:\\\\Users\\\\ICTU\\\\Herd\\\\drs-app\\\\vite.config.js.timestamp-\"* 2>/dev/null; echo done)",
+      "Bash(grep -n 'documents/incoming\\\\|documents.incoming\\\\|actingAs\\($this->' tests/Feature/RecordsSectionViewTest.php tests/Feature/NotificationDispatchTest.php)",
+      "Bash(npm run *)",
+      "Bash(rm -f C:/Users/ICTU/AppData/Local/Temp/claude/c--Users-ICTU-Herd-drs-app/4a3f0ce8-5be2-4c4f-aa53-b3c825ee3418/scratchpad/*.php 2>/dev/null; true)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Http/Controllers/DocumentRoutingController.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Models/DocumentRouting.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l database/migrations/2026_07_22_093100_add_is_rd_routing_to_document_routings_table.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Console/Commands/BackfillRdRoutingFlag.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -r \"echo date\\('l', strtotime\\('2026-07-22'\\)\\) . PHP_EOL;\")",
+      "Bash(npx vue-tsc *)",
+      "Bash(powershell -Command \"Test-Path 'C:\\\\Users\\\\ICTU\\\\.claude\\\\plans'\")",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Policies/DocumentRoutingPolicy.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l routes/web.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/RdCancelRoutingTest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Http/Controllers/OutgoingDocumentController.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/SecretaryOutgoingDocumentTest.php)",
+      "Bash(xargs -I{} echo {})",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Models/DocumentControlNumberCounter.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Services/ControlNumberGenerator.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l database/migrations/2026_07_24_000000_create_document_control_number_counters_table.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l database/migrations/2026_07_24_000001_add_control_number_to_documents_table.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Http/Controllers/IncomingDocumentController.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Models/Document.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Console/Commands/BackfillControlNumbers.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/ControlNumberGeneratorTest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/DocumentControlNumberAssignmentTest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/BackfillControlNumbersCommandTest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Http/Requests/StoreOutgoingDocumentRequest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Http/Requests/StoreIncomingDocumentRequest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l app/Http/Requests/ResubmitOutgoingDocumentRequest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/FileUploadFailureMessageTest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l tests/Feature/ControlNumberGeneratorMysqlRegressionTest.php)",
+      "Bash(\"/c/Users/ICTU/.config/herd/bin/php.bat\" -l database/migrations/2026_07_24_000002_fix_document_control_number_counters_primary_key.php)",
+      "Bash(cd \"c:\\\\Users\\\\ICTU\\\\Herd\\\\drs-app\")",
+      "Bash(xargs -I{} sh -c 'grep -c \"assignRole\" \"{}\" | grep -qv \"^0$\" && awk \"/assignRole/{c[\\\\$0]}\" \"{}\" > /dev/null')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://drs-app.test)",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\\\\n\" https://drs-app.test/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://drs-app.test/login)",
+      "Bash(git stash *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\ICTU\\Herd\\drs-app",
+      "C:\\Users\\ICTU\\AppData\\Local\\Temp\\claude\\c--Users-ICTU-Herd-drs-app\\4a3f0ce8-5be2-4c4f-aa53-b3c825ee3418\\scratchpad"
+    ]
+  }
+}
