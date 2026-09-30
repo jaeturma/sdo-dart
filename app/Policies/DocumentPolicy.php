@@ -9,6 +9,7 @@ use App\Enums\ReviewAction;
 use App\Http\Controllers\IncomingDocumentController;
 use App\Models\Division;
 use App\Models\Document;
+use App\Models\OriginatorUploadSetting;
 use App\Models\User;
 use App\Models\UserSigningCredential;
 
@@ -31,14 +32,14 @@ class DocumentPolicy
      */
     public function view(User $user, Document $document): bool
     {
-        if ($user->hasAnyRole(['rd', 'ard'])) {
+        if ($user->hasAnyRole(['sds', 'asds'])) {
             return true;
         }
 
-        // The RD's secretary can also route incoming documents in lieu of
-        // the RD (see route()), so she needs the same blanket incoming
+        // The SDS's secretary can also route incoming documents in lieu of
+        // the SDS (see route()), so she needs the same blanket incoming
         // visibility to find and open anything she might need to route.
-        if ($document->type === DocumentType::Incoming && $this->isOrdSecretary($user)) {
+        if ($document->type === DocumentType::Incoming && $this->isOsdsSecretary($user)) {
             return true;
         }
 
@@ -107,10 +108,10 @@ class DocumentPolicy
     }
 
     /**
-     * Can the user submit a new outgoing document? The RD's own (ORD)
-     * secretary also gets this — she drafts memoranda on the RD's behalf
+     * Can the user submit a new outgoing document? The SDS's own (OSDS)
+     * secretary also gets this — she drafts memoranda on the SDS's behalf
      * from time to time, not just handling incoming mail/signing. A
-     * secretary outside the ORD tree doesn't get this ability.
+     * secretary outside the OSDS tree doesn't get this ability.
      *
      * A plain 'originator' (Staff) no longer gets this by default — they
      * additionally need the 'kmt_focal' role, a secondary role layered on
@@ -123,44 +124,48 @@ class DocumentPolicy
      * has no role-specific branching for originator/kmt_focal, so a
      * KMT-Focal upload goes through the exact same unit-head-then-chief
      * chain any originator's upload always has.
+     *
+     * An admin can lift the KMT requirement app-wide from the Users page
+     * (OriginatorUploadSetting) — while it's on, every originator with a
+     * division may create outgoing documents, KMT Focal or not.
      */
     public function createOutgoing(User $user): bool
     {
         if ($user->hasRole('originator') && $user->division_id !== null) {
-            return $user->hasRole('kmt_focal');
+            return $user->hasRole('kmt_focal') || OriginatorUploadSetting::allowsAllOriginators();
         }
 
         if ($user->hasAnyRole(['unit_head', 'division_chief']) && $user->division_id !== null) {
             return true;
         }
 
-        // Staff detailed to the Regional Office from elsewhere (e.g. a
-        // School Division Office) — deliberately no division_id check, since
+        // Staff detailed to this Schools Division Office from elsewhere (e.g. a
+        // school or another division office) — deliberately no division_id check, since
         // they're never assigned one (see RoleAndDivisionSeeder).
         if ($user->hasRole('detailed_staff')) {
             return true;
         }
 
-        return $this->isOrdSecretary($user);
+        return $this->isOsdsSecretary($user);
     }
 
     /**
      * Can the user upload a new incoming document?
-     * Restricted to the RD's secretary (ORD Proper) — she's the one who
-     * physically receives incoming mail/documents on the RD's behalf.
-     * Other ORD sub-unit staff (e.g. ICTU, LU, PAU) don't receive incoming
+     * Restricted to the SDS's secretary (OSDS Proper) — she's the one who
+     * physically receives incoming mail/documents on the SDS's behalf.
+     * Other OSDS sub-unit staff (e.g. ICTU, LU, PAU) don't receive incoming
      * documents themselves, so they don't get this ability even though
-     * they're technically within the ORD division tree.
+     * they're technically within the OSDS division tree.
      *
      * Records Section can also upload — they sometimes intake documents
      * directly. These uploads aren't auto-forwarded (that only happens for
-     * ORD Proper's code), so they just land at Received and the RD (who
+     * OSDS Proper's code), so they just land at Received and the SDS (who
      * already sees every incoming document unconditionally) routes them on
      * to division chiefs herself.
      */
     public function createIncoming(User $user): bool
     {
-        if ($user->hasAnyRole(['admin', 'rd'])) {
+        if ($user->hasAnyRole(['admin', 'sds'])) {
             return true;
         }
 
@@ -168,7 +173,7 @@ class DocumentPolicy
             return true;
         }
 
-        if ($this->isOrdSecretary($user)) {
+        if ($this->isOsdsSecretary($user)) {
             return true;
         }
 
@@ -192,13 +197,13 @@ class DocumentPolicy
     }
 
     /**
-     * The RD's own secretary — identified by the `secretary` role plus
-     * sitting in the ORD division tree (ORD itself, or a direct sub-unit
-     * like ORD Proper). She's treated as acting in lieu of the RD for
+     * The SDS's own secretary — identified by the `secretary` role plus
+     * sitting in the OSDS division tree (OSDS itself, or a direct sub-unit
+     * like OSDS Proper). She's treated as acting in lieu of the SDS for
      * certain abilities (uploading incoming mail, routing incoming
-     * documents) that other ORD sub-unit staff (ICTU, LU, PAU) don't get.
+     * documents) that other OSDS sub-unit staff (ICTU, LU, PAU) don't get.
      */
-    private function isOrdSecretary(User $user): bool
+    private function isOsdsSecretary(User $user): bool
     {
         if (! $user->hasRole('secretary') || $user->division_id === null) {
             return false;
@@ -206,19 +211,19 @@ class DocumentPolicy
 
         $division = $user->division;
 
-        return $division?->code === 'ORD' || $division?->parent?->code === 'ORD';
+        return $division?->code === 'OSDS' || $division?->parent?->code === 'OSDS';
     }
 
     /**
      * A unit head whose division has been admin-flagged
-     * allow_rd_direct_routing (e.g. ICTU/LU/PAU, or any other unit opted in
-     * via Office Management — see DivisionController) — the RD routes
+     * allow_sds_direct_routing (e.g. ICTU/LU/PAU, or any other unit opted in
+     * via Office Management — see DivisionController) — the SDS routes
      * incoming documents to these unit heads exactly like she routes to
      * division chiefs (see DocumentRoutingController::candidateUsers()), so
      * they need the same "may forward this to my own staff" ability a
      * division chief gets once they've acknowledged it (see route() below).
      * A unit head whose division isn't flagged (e.g. Procurement Unit under
-     * Administrative Division) is never offered as an RD routing target in
+     * Administrative Division) is never offered as an SDS routing target in
      * the first place — for them a routing round always treats them as
      * staff, a terminal recipient, not someone who forwards further.
      */
@@ -228,7 +233,7 @@ class DocumentPolicy
             return false;
         }
 
-        return (bool) $user->division?->allow_rd_direct_routing;
+        return (bool) $user->division?->allow_sds_direct_routing;
     }
 
     /**
@@ -262,16 +267,16 @@ class DocumentPolicy
                     // per document.
                     || $document->division?->parent_id === $user->division_id
                 ),
-            DocumentStatus::PendingArdReview => $user->hasRole('ard'),
-            DocumentStatus::PendingRdReview => $user->hasRole('rd'),
+            DocumentStatus::PendingAsdsReview => $user->hasRole('asds'),
+            DocumentStatus::PendingSdsReview => $user->hasRole('sds'),
             default => false,
         };
     }
 
     /**
      * Can the secretary sign this document?
-     * Requires: secretary role, outgoing PDF at Approved status, and the RD
-     * having an uploaded signing credential (the secretary attaches the RD's
+     * Requires: secretary role, outgoing PDF at Approved status, and the SDS
+     * having an uploaded signing credential (the secretary attaches the SDS's
      * signature, not one of her own).
      */
     public function sign(User $user, Document $document): bool
@@ -288,7 +293,7 @@ class DocumentPolicy
             return false;
         }
 
-        return $user->hasRole('secretary') && UserSigningCredential::forRegionalDirector() !== null;
+        return $user->hasRole('secretary') && UserSigningCredential::forSds() !== null;
     }
 
     /**
@@ -307,17 +312,17 @@ class DocumentPolicy
 
     /**
      * Lets the secretary manually send an Approved document (sitting in her
-     * signing queue) back to its originator when the RD's own most recent
+     * signing queue) back to its originator when the SDS's own most recent
      * review left remarks but the document was approved anyway rather than
      * returned. DocumentReviewController::store()'s "remarks always win"
      * rule (added after this feature's predecessor shipped) now prevents
      * this from happening for any *new* review, but documents reviewed
-     * before that rule existed can still be sitting here with an RD comment
+     * before that rule existed can still be sitting here with an SDS comment
      * nobody acted on — this gives the secretary, who's the next person to
      * actually look at the document, a way to catch that and correct course
      * instead of silently signing over an overlooked concern.
      *
-     * Scoped to the RD's own *latest* review specifically (not "any RD
+     * Scoped to the SDS's own *latest* review specifically (not "any SDS
      * review ever, on any submission cycle") — an earlier
      * returned-for-revision review from before a resubmission restarted the
      * whole chain doesn't count; only the review that actually produced the
@@ -333,14 +338,14 @@ class DocumentPolicy
             return false;
         }
 
-        $latestRdReview = $document->reviews
-            ->filter(fn ($r) => $r->role_at_review === 'rd')
+        $latestSdsReview = $document->reviews
+            ->filter(fn ($r) => $r->role_at_review === 'sds')
             ->sortByDesc('id')
             ->first();
 
-        return $latestRdReview !== null
-            && $latestRdReview->action === ReviewAction::ApprovedForwarded
-            && trim((string) $latestRdReview->remarks) !== '';
+        return $latestSdsReview !== null
+            && $latestSdsReview->action === ReviewAction::ApprovedForwarded
+            && trim((string) $latestSdsReview->remarks) !== '';
     }
 
     /**
@@ -348,9 +353,9 @@ class DocumentPolicy
      * for a physical/formatting problem she finds while preparing to sign
      * it — missing pages, wrong letterhead/format, etc. Deliberately
      * separate from returnToOwner() above (which is narrowly scoped to one
-     * specific legacy scenario: an RD comment that was overlooked) — this
+     * specific legacy scenario: an SDS comment that was overlooked) — this
      * one is a general QC gate available on any Approved document, any
-     * secretary (matching sign()'s scope, not narrowed to the RD's own ORD
+     * secretary (matching sign()'s scope, not narrowed to the SDS's own OSDS
      * secretary), with no dependency on the review history at all. The two
      * can both be offered on the same document at once; each addresses a
      * different kind of problem.
@@ -363,24 +368,24 @@ class DocumentPolicy
     }
 
     /**
-     * The RD can delete any document, of either type (always soft-deleted).
+     * The SDS can delete any document, of either type (always soft-deleted).
      *
      * An outgoing document's own uploader may cancel/delete it themselves at
-     * any point before the RD approves it — including after a unit head/
-     * division chief/ARD has already reviewed and forwarded it onward, since
+     * any point before the SDS approves it — including after a unit head/
+     * division chief/ASDS has already reviewed and forwarded it onward, since
      * none of those are the final word. Once `Approved` (or anything past
-     * it — signature, release), only the RD can remove it.
+     * it — signature, release), only the SDS can remove it.
      *
      * An incoming document's own uploader may delete it themselves any time
      * before it's been *deliberately* routed — whether routed manually by the
-     * RD/ARD/a division chief. The automatic ORD-Proper-upload auto-forward
+     * SDS/ASDS/a division chief. The automatic OSDS-Proper-upload auto-forward
      * (IncomingAutoForwarder) doesn't count — it's a system action taken on
      * the uploader's behalf, not a human routing decision, exactly like it
      * doesn't count as "already routed" in route()/forActionScope() — so an
-     * ORD secretary must still be able to delete her own mistaken upload even
+     * OSDS secretary must still be able to delete her own mistaken upload even
      * though it was auto-forwarded to Records Section the instant she
-     * created it. Once any *real, still-active* routing exists, only the RD
-     * can remove it — except for the RD's own secretary (see below), who
+     * created it. Once any *real, still-active* routing exists, only the SDS
+     * can remove it — except for the SDS's own secretary (see below), who
      * gets an unrestricted exception on her own uploads. A *cancelled* real
      * routing (see DocumentRoutingPolicy::cancel()) doesn't count either —
      * same "cancelled means it never really happened" treatment already
@@ -388,14 +393,14 @@ class DocumentPolicy
      * forActionScope()) — so if the only real routing(s) on the document
      * were all cancelled, the uploader can still delete it.
      *
-     * The RD's own secretary may delete an incoming document she uploaded
+     * The SDS's own secretary may delete an incoming document she uploaded
      * herself regardless of routing status — even after she's personally
      * routed it onward (e.g. picked the wrong recipient/division). She acts
-     * as the RD's delegate for incoming mail (uploading it, and often routing
-     * it too — see isOrdSecretary()'s shared "already routed" pool with the
-     * RD elsewhere in this class), so a routing decision she made herself on
+     * as the SDS's delegate for incoming mail (uploading it, and often routing
+     * it too — see isOsdsSecretary()'s shared "already routed" pool with the
+     * SDS elsewhere in this class), so a routing decision she made herself on
      * her own upload isn't someone else's authoritative decision the way a
-     * chief's or the RD's own routing would be — this mirrors the RD's own
+     * chief's or the SDS's own routing would be — this mirrors the SDS's own
      * unconditional delete power above, just scoped to documents she
      * personally uploaded.
      *
@@ -404,24 +409,24 @@ class DocumentPolicy
      * real routing left on it (same rule an ordinary uploader gets on their
      * own document, just not restricted to "own upload" for her). She's the
      * one actually driving the routing/cancel lifecycle for incoming mail on
-     * the RD's behalf across the board, not only documents she personally
+     * the SDS's behalf across the board, not only documents she personally
      * uploaded, so once she's cancelled the only routing on someone else's
      * upload she needs to be able to remove it too — a real reported gap:
      * she could cancel a routing she'd issued by mistake but still couldn't
      * delete the underlying document, since the prior version of this method
      * required being the uploader before even checking routing status at
      * all. An active (non-cancelled) real routing still blocks her here,
-     * same as it would for the actual uploader — this isn't the RD's fully
+     * same as it would for the actual uploader — this isn't the SDS's fully
      * unconditional power, just her routing-lifecycle authority extended to
      * deletion. Soft-deleted, so nothing is actually destroyed.
      */
     public function delete(User $user, Document $document): bool
     {
-        if ($user->hasRole('rd')) {
+        if ($user->hasRole('sds')) {
             return true;
         }
 
-        if ($document->type === DocumentType::Incoming && $this->isOrdSecretary($user)) {
+        if ($document->type === DocumentType::Incoming && $this->isOsdsSecretary($user)) {
             if ($document->uploaded_by === $user->id) {
                 return true;
             }
@@ -447,7 +452,7 @@ class DocumentPolicy
 
     /**
      * Shared by delete()'s two incoming-document paths (the ordinary
-     * uploader, and the RD's secretary acting on someone else's upload). A
+     * uploader, and the SDS's secretary acting on someone else's upload). A
      * filed/archived document (see archive() above) is a deliberate closure
      * decision, same as a real routing — locked from deletion the same way.
      * A *cancelled* real routing (see DocumentRoutingPolicy::cancel())
@@ -472,34 +477,34 @@ class DocumentPolicy
 
     /**
      * Can the user issue an action slip (route) for this document?
-     * Includes `Routed` so the RD/ARD can still route it themselves after
-     * someone else already routed it — but only once each: after RD/ARD has
+     * Includes `Routed` so the SDS/ASDS can still route it themselves after
+     * someone else already routed it — but only once each: after SDS/ASDS has
      * personally issued their own routing round for it, the option disappears
      * for them too (matches the same rule the forActionScope() "For Routing"
      * queue already applies), mirroring the division chief case below. The
-     * RD's own secretary gets this exact same ability, acting in lieu of the
-     * RD — she is not restricted to documents she personally uploaded.
+     * SDS's own secretary gets this exact same ability, acting in lieu of the
+     * SDS — she is not restricted to documents she personally uploaded.
      *
-     * For the RD/her secretary specifically, "already routed" is shared
-     * between the two of them via the `is_rd_routing` flag on
+     * For the SDS/her secretary specifically, "already routed" is shared
+     * between the two of them via the `is_sds_routing` flag on
      * `document_routings` (stamped at creation time — see
      * DocumentRoutingController::store()) rather than tracked by *current*
-     * user identity: the secretary routes *as* the RD, not as a separate
+     * user identity: the secretary routes *as* the SDS, not as a separate
      * independent channel, so if either of them has already issued a real
-     * routing round, the option disappears for both — otherwise the RD would
+     * routing round, the option disappears for both — otherwise the SDS would
      * keep seeing "Route Document" (and the document would keep reappearing
      * in her For Action/For Routing queue) for a document her own secretary
      * already routed on her behalf, and vice versa. Deliberately NOT derived
-     * from whoever currently holds the `rd`/`secretary` role+division at
+     * from whoever currently holds the `sds`/`secretary` role+division at
      * query time — staff get reassigned (a secretary transferred to a
      * different division later), and a routing she issued while she WAS the
-     * RD's secretary must keep counting as such forever after, regardless of
-     * where she works now. ARD is excluded from this sharing — she's a
+     * SDS's secretary must keep counting as such forever after, regardless of
+     * where she works now. ASDS is excluded from this sharing — she's a
      * genuinely independent reviewer, not a delegate, so only her own
      * routing decision (tracked by her own stable `routed_by` id) counts.
      *
-     * `is_rd_routing` is only ever true for a real, deliberate routing — the
-     * automatic ORD-Proper-upload auto-forward (IncomingAutoForwarder) never
+     * `is_sds_routing` is only ever true for a real, deliberate routing — the
+     * automatic OSDS-Proper-upload auto-forward (IncomingAutoForwarder) never
      * sets it, even though it's recorded with `routed_by` set to the
      * uploading secretary (for the audit trail — see who triggered it) — it's
      * a system action, not a deliberate routing decision, and must not
@@ -510,8 +515,8 @@ class DocumentPolicy
      * already acknowledged (proves they've actually looked at it before
      * delegating it onward), and only once — after they've issued their own
      * routing round for it, forwarding is done and the option disappears.
-     * A unit head within the ORD division tree (ICTU/LU/PAU) gets this exact
-     * same ability for the same reason — the RD routes directly to them too,
+     * A unit head within the OSDS division tree (ICTU/LU/PAU) gets this exact
+     * same ability for the same reason — the SDS routes directly to them too,
      * and they need to be able to forward it on to their own staff.
      */
     public function route(User $user, Document $document): bool
@@ -534,17 +539,17 @@ class DocumentPolicy
         // when one is available (e.g. DocumentController::index()'s bulk
         // listing) instead of firing 1-2 fresh queries per document. Same
         // boolean conditions as before, just evaluated in memory.
-        if ($user->hasRole('rd') || $this->isOrdSecretary($user)) {
-            // A cancelled RD/secretary routing (see DocumentRoutingPolicy::cancel())
+        if ($user->hasRole('sds') || $this->isOsdsSecretary($user)) {
+            // A cancelled SDS/secretary routing (see DocumentRoutingPolicy::cancel())
             // doesn't count as "already routed" — cancelling it is exactly
-            // what's meant to let the RD/secretary route it again after a
-            // mistake, mirroring the division-chief branch below. ARD has no
+            // what's meant to let the SDS/secretary route it again after a
+            // mistake, mirroring the division-chief branch below. ASDS has no
             // cancel pathway and isn't part of this shared pool, so her own
             // branch below intentionally has no equivalent exclusion.
-            return ! $document->routings->contains(fn ($r) => $r->is_rd_routing && $r->cancelled_at === null);
+            return ! $document->routings->contains(fn ($r) => $r->is_sds_routing && $r->cancelled_at === null);
         }
 
-        if ($user->hasRole('ard')) {
+        if ($user->hasRole('asds')) {
             return ! $document->routings->contains(fn ($r) => $r->routed_by === $user->id
                 && ($r->remarks === null || $r->remarks !== IncomingDocumentController::AUTO_FORWARD_REMARKS));
         }
@@ -567,9 +572,9 @@ class DocumentPolicy
     }
 
     /**
-     * Can the RD's own ORD secretary file this incoming document directly,
+     * Can the SDS's own OSDS secretary file this incoming document directly,
      * skipping routing entirely? Secretary-only, deliberately NOT shared
-     * with the RD the way route()/cancel() are (mirrors sign(), which is
+     * with the SDS the way route()/cancel() are (mirrors sign(), which is
      * likewise exclusively the secretary's job in this app). Two distinct
      * cases:
      *
@@ -577,7 +582,7 @@ class DocumentPolicy
      *    (Received/PendingRouting) and doesn't need to reach a division
      *    chief.
      *
-     * 2. An ORD-Proper upload that was auto-forwarded to Records Section on
+     * 2. An OSDS-Proper upload that was auto-forwarded to Records Section on
      *    intake (IncomingAutoForwarder — the recipient's action is literally
      *    RoutingAction::File) and never got a REAL, deliberate routing on
      *    top of that. Records Section completing their courtesy copy
@@ -595,7 +600,7 @@ class DocumentPolicy
             return false;
         }
 
-        if (! $this->isOrdSecretary($user)) {
+        if (! $this->isOsdsSecretary($user)) {
             return false;
         }
 

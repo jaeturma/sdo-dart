@@ -12,11 +12,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-class RdForActionSplitTest extends TestCase
+class SdsForActionSplitTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
+    private User $sds;
     private User $originator;
 
     protected function setUp(): void
@@ -25,23 +25,23 @@ class RdForActionSplitTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'rd'] as $role) {
+        foreach (['admin', 'originator', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->originator = User::factory()->create();
         $this->originator->assignRole('originator');
     }
 
-    private function outgoingAwaitingRd(): Document
+    private function outgoingAwaitingSds(): Document
     {
         return Document::create([
-            'type' => DocumentType::Outgoing, 'title' => 'Needs RD approval',
+            'type' => DocumentType::Outgoing, 'title' => 'Needs SDS approval',
             'uploaded_by' => $this->originator->id, 'file_path' => 'outgoing/a.pdf',
-            'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingRdReview,
+            'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingSdsReview,
         ]);
     }
 
@@ -54,12 +54,12 @@ class RdForActionSplitTest extends TestCase
         ]);
     }
 
-    public function test_for_approval_tab_shows_outgoing_documents_awaiting_rd_only(): void
+    public function test_for_approval_tab_shows_outgoing_documents_awaiting_sds_only(): void
     {
-        $outgoing = $this->outgoingAwaitingRd();
+        $outgoing = $this->outgoingAwaitingSds();
         $incoming = $this->incomingAwaitingRouting();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_approval']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -70,10 +70,10 @@ class RdForActionSplitTest extends TestCase
 
     public function test_for_routing_tab_shows_incoming_documents_awaiting_dispatch_only(): void
     {
-        $outgoing = $this->outgoingAwaitingRd();
+        $outgoing = $this->outgoingAwaitingSds();
         $incoming = $this->incomingAwaitingRouting();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_routing']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -84,24 +84,24 @@ class RdForActionSplitTest extends TestCase
 
     public function test_for_approval_and_for_routing_counts_together_equal_for_action_count(): void
     {
-        $this->outgoingAwaitingRd();
+        $this->outgoingAwaitingSds();
         $this->incomingAwaitingRouting();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index'))
             ->assertInertia(fn ($page) => $page
-                ->where('isRd', true)
+                ->where('isSds', true)
                 ->where('forApprovalCount', 1)
                 ->where('forRoutingCount', 1)
                 ->where('forActionCount', 2));
     }
 
-    public function test_non_rd_user_does_not_get_split_counts(): void
+    public function test_non_sds_user_does_not_get_split_counts(): void
     {
         $this->actingAs($this->originator)
             ->get(route('documents.index'))
             ->assertInertia(fn ($page) => $page
-                ->where('isRd', false)
+                ->where('isSds', false)
                 ->where('forApprovalCount', null)
                 ->where('forRoutingCount', null));
     }

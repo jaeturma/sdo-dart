@@ -25,7 +25,7 @@ class DivisionChiefRoutingActiveStaffTest extends TestCase
     use RefreshDatabase;
 
     private Division $ad;
-    private User $rd;
+    private User $sds;
     private User $chief;
 
     protected function setUp(): void
@@ -34,14 +34,14 @@ class DivisionChiefRoutingActiveStaffTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'rd'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->ad->id]);
         $this->chief->assignRole('division_chief');
@@ -50,13 +50,13 @@ class DivisionChiefRoutingActiveStaffTest extends TestCase
     private function routeDocumentToChief(): Document
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/memo.pdf', 'file_hash' => hash('sha256', 'memo'),
             'status' => DocumentStatus::Received,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(),
         ]);
 

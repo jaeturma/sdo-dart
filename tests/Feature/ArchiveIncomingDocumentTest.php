@@ -16,13 +16,13 @@ use Tests\TestCase;
 
 /**
  * Records Section can upload incoming documents directly, and unlike
- * ORD-Proper uploads these are never auto-forwarded — they sit at Received
+ * OSDS-Proper uploads these are never auto-forwarded — they sit at Received
  * until someone routes them to a division chief. Not every one of these
- * needs to actually reach a chief, so the RD's ORD secretary can file one
+ * needs to actually reach a chief, so the SDS's OSDS secretary can file one
  * directly (DocumentStatus::Archived — previously a fully vestigial enum
  * case) instead of routing it. See DocumentPolicy::archive()'s first case.
  *
- * Its second case covers the opposite direction: an ORD-Proper upload that
+ * Its second case covers the opposite direction: an OSDS-Proper upload that
  * auto-forwards to Records Section on intake (IncomingAutoForwarder) stays
  * at Routed forever once Records Section files their courtesy copy, since
  * that alone never promotes the document (no *real* routing exists) — the
@@ -33,11 +33,11 @@ class ArchiveIncomingDocumentTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ordp;
+    private Division $osdsp;
     private Division $records;
     private Division $ad;
     private User $secretary;
-    private User $rd;
+    private User $sds;
     private User $recordsClerk;
     private User $chief;
 
@@ -47,20 +47,20 @@ class ArchiveIncomingDocumentTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'division_chief', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'division_chief', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $ord->id]);
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $osds->id]);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
-        $this->secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $this->secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $this->secretary->assignRole('secretary');
 
-        $this->rd = User::factory()->create(['division_id' => $ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $osds->id]);
+        $this->sds->assignRole('sds');
 
         $this->recordsClerk = User::factory()->create(['division_id' => $this->records->id]);
         $this->recordsClerk->assignRole('originator');
@@ -81,8 +81,8 @@ class ArchiveIncomingDocumentTest extends TestCase
     }
 
     /**
-     * Triggers IncomingAutoForwarder — the secretary sits in ORD Proper
-     * (division code 'ORDP'), the exact condition IncomingDocumentController::
+     * Triggers IncomingAutoForwarder — the secretary sits in OSDS Proper
+     * (division code 'OSDSP'), the exact condition IncomingDocumentController::
      * store() checks to auto-forward on intake.
      */
     private function uploadAsSecretary(string $title): Document
@@ -96,7 +96,7 @@ class ArchiveIncomingDocumentTest extends TestCase
         return Document::firstWhere('title', $title);
     }
 
-    public function test_ord_secretary_can_archive_a_records_section_upload(): void
+    public function test_osds_secretary_can_archive_a_records_section_upload(): void
     {
         $document = $this->uploadAsRecordsClerk('FYI circular');
 
@@ -121,18 +121,18 @@ class ArchiveIncomingDocumentTest extends TestCase
         $this->assertSame($this->records->id, $document->division_id);
     }
 
-    public function test_rd_cannot_archive_directly(): void
+    public function test_sds_cannot_archive_directly(): void
     {
-        $document = $this->uploadAsRecordsClerk('RD cannot file this');
+        $document = $this->uploadAsRecordsClerk('SDS cannot file this');
 
-        $this->assertFalse($this->rd->can('archive', $document));
+        $this->assertFalse($this->sds->can('archive', $document));
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.archive', $document), [])
             ->assertForbidden();
     }
 
-    public function test_secretary_outside_ord_cannot_archive(): void
+    public function test_secretary_outside_osds_cannot_archive(): void
     {
         $outsideSecretary = User::factory()->create(['division_id' => $this->ad->id]);
         $outsideSecretary->assignRole('secretary');
@@ -145,8 +145,8 @@ class ArchiveIncomingDocumentTest extends TestCase
     public function test_cannot_archive_a_document_not_uploaded_by_records_section(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'RD-uploaded memo',
-            'uploaded_by' => $this->rd->id, 'division_id' => $this->rd->division_id,
+            'type' => DocumentType::Incoming, 'title' => 'SDS-uploaded memo',
+            'uploaded_by' => $this->sds->id, 'division_id' => $this->sds->division_id,
             'file_path' => 'incoming/a.pdf', 'file_hash' => hash('sha256', 'a'),
             'status' => DocumentStatus::Received,
         ]);
@@ -231,9 +231,9 @@ class ArchiveIncomingDocumentTest extends TestCase
         $this->assertFalse($this->recordsClerk->can('delete', $document));
     }
 
-    // ── Second case: auto-forwarded (ORD-Proper upload), Routed, no real routing ──
+    // ── Second case: auto-forwarded (OSDS-Proper upload), Routed, no real routing ──
 
-    public function test_ord_secretary_can_archive_an_auto_forwarded_document_with_no_real_routing(): void
+    public function test_osds_secretary_can_archive_an_auto_forwarded_document_with_no_real_routing(): void
     {
         $document = $this->uploadAsSecretary('Auto-forwarded circular');
 
@@ -253,7 +253,7 @@ class ArchiveIncomingDocumentTest extends TestCase
      * that alone doesn't promote the document, so the secretary must still
      * be able to file the document itself afterward.
      */
-    public function test_ord_secretary_can_still_archive_after_records_section_files_their_own_copy(): void
+    public function test_osds_secretary_can_still_archive_after_records_section_files_their_own_copy(): void
     {
         $document = $this->uploadAsSecretary('Filed by records section first');
         $document->load('routings.recipients');

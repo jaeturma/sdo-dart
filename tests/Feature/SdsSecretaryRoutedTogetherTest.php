@@ -15,28 +15,28 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Bug report: an already-routed document kept reappearing in the RD's (or
- * her secretary's) For Action/For Routing queue. Root cause — the RD's
- * secretary routes incoming documents *in lieu of* the RD (not as an
+ * Bug report: an already-routed document kept reappearing in the SDS's (or
+ * her secretary's) For Action/For Routing queue. Root cause — the SDS's
+ * secretary routes incoming documents *in lieu of* the SDS (not as an
  * independent channel), but DocumentPolicy::route()'s and
  * DocumentScopesTrait::forActionScope()'s "have I already routed this"
  * check was tracked strictly per-individual-user. So if the secretary
- * routed a document to a division chief, the RD (who never personally
+ * routed a document to a division chief, the SDS (who never personally
  * routed it herself) would still see "Route Document" and the document
  * would keep showing in her own queue — and vice versa. Fixed via
- * rdActingUserIds(): the RD and every ORD secretary now share one combined
- * "already routed" pool. ARD deliberately stays independent — she's a
+ * sdsActingUserIds(): the SDS and every OSDS secretary now share one combined
+ * "already routed" pool. ASDS deliberately stays independent — she's a
  * genuinely separate reviewer, not a delegate.
  */
-class RdSecretaryRoutedTogetherTest extends TestCase
+class SdsSecretaryRoutedTogetherTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private Division $ordp;
+    private Division $osds;
+    private Division $osdsp;
     private Division $ad;
-    private User $rd;
-    private User $ard;
+    private User $sds;
+    private User $asds;
     private User $secretary;
     private User $chief;
 
@@ -46,21 +46,21 @@ class RdSecretaryRoutedTogetherTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $this->ord->id]);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $this->osds->id]);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create(['division_id' => $this->ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $this->osds->id]);
+        $this->sds->assignRole('sds');
 
-        $this->ard = User::factory()->create();
-        $this->ard->assignRole('ard');
+        $this->asds = User::factory()->create();
+        $this->asds->assignRole('asds');
 
-        $this->secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $this->secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $this->secretary->assignRole('secretary');
 
         $this->chief = User::factory()->create(['division_id' => $this->ad->id]);
@@ -70,7 +70,7 @@ class RdSecretaryRoutedTogetherTest extends TestCase
     private function uploadedDocument(): Document
     {
         return Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/memo.pdf', 'file_hash' => hash('sha256', 'memo'),
             'status' => DocumentStatus::Received,
         ]);
@@ -86,9 +86,9 @@ class RdSecretaryRoutedTogetherTest extends TestCase
         ]);
 
         $document->refresh();
-        $this->assertFalse($this->rd->can('route', $document));
+        $this->assertFalse($this->sds->can('route', $document));
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_routing']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -96,11 +96,11 @@ class RdSecretaryRoutedTogetherTest extends TestCase
             ));
     }
 
-    public function test_document_drops_out_of_secretarys_queue_after_rd_routes_it_herself(): void
+    public function test_document_drops_out_of_secretarys_queue_after_sds_routes_it_herself(): void
     {
         $document = $this->uploadedDocument();
 
-        $this->actingAs($this->rd)->post(route('documents.routings.store', $document), [
+        $this->actingAs($this->sds)->post(route('documents.routings.store', $document), [
             'action'   => 'appropriate_action',
             'user_ids' => [$this->chief->id],
         ]);
@@ -137,9 +137,9 @@ class RdSecretaryRoutedTogetherTest extends TestCase
         ]);
 
         $document->refresh();
-        $this->assertFalse($this->rd->can('route', $document));
+        $this->assertFalse($this->sds->can('route', $document));
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_routing']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -147,7 +147,7 @@ class RdSecretaryRoutedTogetherTest extends TestCase
             ));
     }
 
-    public function test_ard_stays_independent_and_can_still_route_after_secretary_already_did(): void
+    public function test_asds_stays_independent_and_can_still_route_after_secretary_already_did(): void
     {
         $document = $this->uploadedDocument();
 
@@ -158,12 +158,12 @@ class RdSecretaryRoutedTogetherTest extends TestCase
 
         $document->refresh();
 
-        // ARD is not part of the RD/secretary pool — the secretary routing
-        // it doesn't count as ARD having acted, so ARD independently still
+        // ASDS is not part of the SDS/secretary pool — the secretary routing
+        // it doesn't count as ASDS having acted, so ASDS independently still
         // sees it and can route it herself too.
-        $this->assertTrue($this->ard->can('route', $document));
+        $this->assertTrue($this->asds->can('route', $document));
 
-        $this->actingAs($this->ard)
+        $this->actingAs($this->asds)
             ->get(route('documents.index', ['tab' => 'for_action']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -171,10 +171,10 @@ class RdSecretaryRoutedTogetherTest extends TestCase
             ));
     }
 
-    public function test_rd_can_still_route_once_even_though_secretary_already_did(): void
+    public function test_sds_can_still_route_once_even_though_secretary_already_did(): void
     {
         // Confirms the shared pool only suppresses re-appearing in the
-        // queue/route ability — it doesn't secretly let the RD bypass the
+        // queue/route ability — it doesn't secretly let the SDS bypass the
         // once-each rule; after the secretary routes, NEITHER of them may
         // route it again (matches the single-router "once each" intent).
         $document = $this->uploadedDocument();
@@ -185,20 +185,20 @@ class RdSecretaryRoutedTogetherTest extends TestCase
         ]);
 
         $document->refresh();
-        $this->assertFalse($this->rd->can('route', $document));
+        $this->assertFalse($this->sds->can('route', $document));
         $this->assertFalse($this->secretary->can('route', $document));
     }
 
     /**
      * Reproduces the exact follow-up bug report: a secretary routes a
-     * document while she's the RD's (ORD) secretary, then is later
+     * document while she's the SDS's (OSDS) secretary, then is later
      * transferred to a completely different division (and, in the more
      * severe case, loses the secretary role entirely). Her past routing
-     * decision must still count as "the RD's queue was served" — it must
+     * decision must still count as "the SDS's queue was served" — it must
      * not depend on her *current* role/division at query time, or every
-     * reassignment silently reopens old documents in the RD's queue again.
+     * reassignment silently reopens old documents in the SDS's queue again.
      */
-    public function test_secretarys_routing_still_counts_after_she_is_reassigned_away_from_ord(): void
+    public function test_secretarys_routing_still_counts_after_she_is_reassigned_away_from_osds(): void
     {
         $document = $this->uploadedDocument();
 
@@ -208,7 +208,7 @@ class RdSecretaryRoutedTogetherTest extends TestCase
         ]);
         $document->refresh();
 
-        $this->assertFalse($this->rd->can('route', $document));
+        $this->assertFalse($this->sds->can('route', $document));
 
         // She gets transferred to Administrative Division — and, in the
         // more severe real-world case, her role is changed away from
@@ -218,11 +218,11 @@ class RdSecretaryRoutedTogetherTest extends TestCase
 
         $document->refresh();
         $this->assertFalse(
-            $this->rd->can('route', $document),
-            'a routing already issued by the (former) ORD secretary must still count for the RD, regardless of her current role/division',
+            $this->sds->can('route', $document),
+            'a routing already issued by the (former) OSDS secretary must still count for the SDS, regardless of her current role/division',
         );
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_routing']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',

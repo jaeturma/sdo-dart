@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDivisionRequest;
 use App\Http\Requests\UpdateDivisionRequest;
 use App\Models\Division;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,14 +37,19 @@ class DivisionController extends Controller
                 'usersCount' => $d->users_count,
                 'documentsCount' => $d->documents_count,
                 'childrenCount' => $d->children_count,
-                'allowRdDirectRouting' => $d->allow_rd_direct_routing,
-                'canDelete' => $d->users_count === 0 && $d->documents_count === 0
+                'allowSdsDirectRouting' => $d->allow_sds_direct_routing,
+                'isRecordsSection' => $d->is_records_section,
+                'isOsds' => $d->isOsds(),
+                'canDelete' => ! $d->isOsds() && $d->users_count === 0 && $d->documents_count === 0
                     && $d->children_count === 0 && $d->routing_recipients_count === 0,
             ]);
 
         return Inertia::render('Divisions/Index', [
             'divisions' => $divisions,
             'search' => $search,
+            // Checked against the whole table, not the (possibly searched)
+            // list above, so a search can't hide the "not configured" banner.
+            'recordsSectionConfigured' => Division::recordsSectionId() !== null,
         ]);
     }
 
@@ -53,17 +60,29 @@ class DivisionController extends Controller
         return Inertia::render('Divisions/Form', [
             'division' => null,
             'parentOptions' => $this->parentOptions(),
+            'currentRecordsSection' => Division::where('is_records_section', true)->value('name'),
         ]);
     }
 
     public function store(StoreDivisionRequest $request): RedirectResponse
     {
-        $division = Division::create([
-            'name' => $request->name,
-            'code' => $request->code,
-            'parent_id' => $request->parent_id,
-            'allow_rd_direct_routing' => $request->boolean('allow_rd_direct_routing'),
-        ]);
+        $division = DB::transaction(function () use ($request) {
+            $division = Division::create([
+                'name' => $request->name,
+                'code' => $request->code,
+                'parent_id' => $request->parent_id,
+                'allow_sds_direct_routing' => $request->boolean('allow_sds_direct_routing'),
+                'is_records_section' => $request->boolean('is_records_section'),
+            ]);
+
+            $this->keepRecordsSectionUnique($division);
+
+            return $division;
+        });
+
+        if ($division->is_records_section) {
+            $this->logRecordsSectionChange($request, $division, true);
+        }
 
         return redirect()->route('divisions.index')
             ->with('success', "Office \"{$division->name}\" created successfully.");
@@ -79,20 +98,36 @@ class DivisionController extends Controller
                 'name' => $division->name,
                 'code' => $division->code,
                 'parent_id' => $division->parent_id,
-                'allow_rd_direct_routing' => $division->allow_rd_direct_routing,
+                'allow_sds_direct_routing' => $division->allow_sds_direct_routing,
+                'is_records_section' => $division->is_records_section,
+                'is_osds' => $division->isOsds(),
             ],
             'parentOptions' => $this->parentOptions($division),
+            'currentRecordsSection' => Division::where('is_records_section', true)
+                ->whereKeyNot($division->id)
+                ->value('name'),
         ]);
     }
 
     public function update(UpdateDivisionRequest $request, Division $division): RedirectResponse
     {
-        $division->update([
-            'name' => $request->name,
-            'code' => $request->code,
-            'parent_id' => $request->parent_id,
-            'allow_rd_direct_routing' => $request->boolean('allow_rd_direct_routing'),
-        ]);
+        $wasRecordsSection = $division->is_records_section;
+
+        DB::transaction(function () use ($request, $division) {
+            $division->update([
+                'name' => $request->name,
+                'code' => $request->code,
+                'parent_id' => $request->parent_id,
+                'allow_sds_direct_routing' => $request->boolean('allow_sds_direct_routing'),
+                'is_records_section' => $request->boolean('is_records_section'),
+            ]);
+
+            $this->keepRecordsSectionUnique($division);
+        });
+
+        if ($division->is_records_section !== $wasRecordsSection) {
+            $this->logRecordsSectionChange($request, $division, $division->is_records_section);
+        }
 
         return redirect()->route('divisions.index')
             ->with('success', "Office \"{$division->name}\" updated successfully.");
@@ -101,6 +136,13 @@ class DivisionController extends Controller
     public function destroy(Division $division): RedirectResponse
     {
         $this->authorize('delete', $division);
+
+        if ($division->isOsds()) {
+            return redirect()->route('divisions.index')->with(
+                'error',
+                "Cannot delete \"{$division->name}\" — the system uses it to identify the Office of the SDS."
+            );
+        }
 
         $blockers = $this->deletionBlockers($division);
 
@@ -153,6 +195,34 @@ class DivisionController extends Controller
             });
 
         return $options;
+    }
+
+    /**
+     * Only one office can be the Records Section — designating another one
+     * moves the designation there instead of creating a second.
+     */
+    private function keepRecordsSectionUnique(Division $division): void
+    {
+        if ($division->is_records_section) {
+            Division::where('is_records_section', true)
+                ->whereKeyNot($division->id)
+                ->update(['is_records_section' => false]);
+        }
+    }
+
+    /**
+     * The Records Section designation decides who can apply release stamps,
+     * hold a signing credential, and read the Incoming Log, so changes to it
+     * go in the audit trail like the other admin settings.
+     */
+    private function logRecordsSectionChange(Request $request, Division $division, bool $designated): void
+    {
+        AuditLogger::log($request->user(), null, $designated
+            ? 'division.records_section_designated'
+            : 'division.records_section_cleared', $request, [
+                'division_id' => $division->id,
+                'division_name' => $division->name,
+            ]);
     }
 
     /**

@@ -17,7 +17,7 @@ class RestrictWeekendAccess
         if ($day === Carbon::SATURDAY || $day === Carbon::SUNDAY) {
             $user = $request->user();
 
-            if (! $user || (! $user->hasAnyRole(['rd', 'admin']) && ! $user->can_login_weekends)) {
+            if (! $user || (! $user->hasAnyRole(['sds', 'admin']) && ! $user->can_login_weekends)) {
                 return Inertia::render('WeekendRestriction', [
                     'userName' => $user?->name,
                 ])->toResponse($request)->setStatusCode(403);

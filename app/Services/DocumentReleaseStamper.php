@@ -8,16 +8,16 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Mirrors App\Services\DocumentSigner, retargeted at Records Section's
- * "release" step instead of the RD's approval signature. The visual stamp
+ * "release" step instead of the SDS's approval signature. The visual stamp
  * (office seal + "RELEASED" styling + personal signature) is not drawn by
  * this class — it's baked into the releasing officer's own uploaded e-sig
- * image, exactly like the RD's esig_path. The only thing drawn dynamically
+ * image, exactly like the SDS's esig_path. The only thing drawn dynamically
  * is the "Digitally signed by / Date" text, since that differs every
  * release — handled by PyhankoPdfSigner's stamp-style templating.
  *
  * Applies its own independent, incremental-update signature (via
  * PyhankoPdfSigner) on top of the already-signed file — this is what makes
- * the RD's signature actually survive into the released/*.pdf artifact
+ * the SDS's signature actually survive into the released/*.pdf artifact
  * Records Section downloads and emails out, which the old FPDI/TCPDF
  * pipeline did not do (it silently dropped whatever signature already
  * existed in the source file it imported pages from).
@@ -54,7 +54,7 @@ class DocumentReleaseStamper
             throw new \RuntimeException('This document has not been signed yet — nothing to release-stamp.');
         }
 
-        // 1. Verify the RD-signed file has not been tampered with since it was signed
+        // 1. Verify the SDS-signed file has not been tampered with since it was signed
         $originalPath = Storage::disk('documents')->path($signature->signed_file_path);
         $actualHash = hash_file('sha256', $originalPath);
 

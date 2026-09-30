@@ -11,7 +11,7 @@ class Division extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'code', 'parent_id', 'allow_rd_direct_routing'];
+    protected $fillable = ['name', 'code', 'parent_id', 'allow_sds_direct_routing', 'is_records_section'];
 
     /**
      * @return array<string, string>
@@ -19,8 +19,20 @@ class Division extends Model
     protected function casts(): array
     {
         return [
-            'allow_rd_direct_routing' => 'boolean',
+            'allow_sds_direct_routing' => 'boolean',
+            'is_records_section' => 'boolean',
         ];
+    }
+
+    /**
+     * The Office of the SDS itself — the division coded 'OSDS'. Many
+     * behaviors key off that exact code (see isOsdsSecretary() and its
+     * duplicates), so Office Management refuses to change it or delete
+     * this office.
+     */
+    public function isOsds(): bool
+    {
+        return $this->code === 'OSDS';
     }
 
     public function users(): HasMany
@@ -74,10 +86,15 @@ class Division extends Model
     }
 
     /**
-     * The Records Section division's id, looked up by its "RS" code.
+     * The Records Section's id — whichever office an admin designated via
+     * Office Management (is_records_section). Null until one is designated,
+     * which leaves release stamping, the Incoming Log, and the secretary's
+     * auto-forward unavailable. DivisionController keeps the flag on at most
+     * one office; the orderBy only makes the result deterministic if that
+     * were ever bypassed.
      */
     public static function recordsSectionId(): ?int
     {
-        return static::where('code', 'RS')->value('id');
+        return static::where('is_records_section', true)->orderBy('id')->value('id');
     }
 }

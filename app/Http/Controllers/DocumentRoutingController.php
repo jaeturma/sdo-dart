@@ -24,7 +24,7 @@ use Inertia\Response;
 class DocumentRoutingController extends Controller
 {
     private const ROLE_LABELS = [
-        'ard' => 'Assistant Schools Division Superintendent',
+        'asds' => 'Assistant Schools Division Superintendent',
         'division_chief' => 'Division Chief',
         'unit_head' => 'Unit / Section Head',
         'originator' => 'Staff',
@@ -83,18 +83,18 @@ class DocumentRoutingController extends Controller
     }
 
     /**
-     * The RD's own secretary — same identification as
-     * DocumentPolicy::isOrdSecretary() (kept as a separate private copy here
+     * The SDS's own secretary — same identification as
+     * DocumentPolicy::isOsdsSecretary() (kept as a separate private copy here
      * rather than shared, matching how isDirectRoutableUnitHead() is
      * duplicated per-class elsewhere in this codebase rather than shared).
      */
-    private function isOrdSecretary(User $user): bool
+    private function isOsdsSecretary(User $user): bool
     {
         if (! $user->hasRole('secretary') || $user->division_id === null) {
             return false;
         }
 
-        return $user->division?->code === 'ORD' || $user->division?->parent?->code === 'ORD';
+        return $user->division?->code === 'OSDS' || $user->division?->parent?->code === 'OSDS';
     }
 
     public function store(RouteDocumentRequest $request, Document $document): RedirectResponse
@@ -115,7 +115,7 @@ class DocumentRoutingController extends Controller
                 // secretary later transferred to a different division), and
                 // this fact must not change retroactively with them. See
                 // DocumentPolicy::route()'s matching use of this column.
-                'is_rd_routing' => $user->hasRole('rd') || $this->isOrdSecretary($user),
+                'is_sds_routing' => $user->hasRole('sds') || $this->isOsdsSecretary($user),
             ]);
 
             foreach ($request->user_ids as $userId) {
@@ -155,12 +155,12 @@ class DocumentRoutingController extends Controller
             NotificationDispatcher::documentRouted($routing);
         });
 
-        // Back to a list (not the document itself) so the RD/ARD can keep
-        // working through their remaining pending documents. The RD gets her
+        // Back to a list (not the document itself) so the SDS/ASDS can keep
+        // working through their remaining pending documents. The SDS gets her
         // own "For Routing" tab (incoming only) since she has a separate
         // "For Approval" tab for outgoing — everyone else shares the combined
         // "For Action" tab.
-        $tab = $user->hasRole('rd') ? 'for_routing' : 'for_action';
+        $tab = $user->hasRole('sds') ? 'for_routing' : 'for_action';
 
         return redirect()->route('documents.index', ['tab' => $tab])
             ->with('success', 'Document routed successfully.');
@@ -169,7 +169,7 @@ class DocumentRoutingController extends Controller
     /**
      * Undo a routing round issued by mistake (e.g. wrong staff selected).
      * A division chief may only do this while every one of its recipients
-     * is still Pending; the RD/her secretary may do this anytime, even after
+     * is still Pending; the SDS/her secretary may do this anytime, even after
      * the recipient has acknowledged or fully completed it (see
      * DocumentRoutingPolicy::cancel()).
      */
@@ -199,7 +199,7 @@ class DocumentRoutingController extends Controller
                     'auto_completed_by_routing_id' => null,
                 ]);
 
-            // The RD/secretary's unconditional cancel means this routing's
+            // The SDS/secretary's unconditional cancel means this routing's
             // recipient may have already been Completed — which, if it was
             // the document's last outstanding recipient, would have already
             // promoted the whole document to Completed (see
@@ -224,7 +224,7 @@ class DocumentRoutingController extends Controller
     }
 
     /**
-     * The RD's ORD secretary files a Records-Section-uploaded incoming
+     * The SDS's OSDS secretary files a Records-Section-uploaded incoming
      * document directly, skipping routing entirely — for documents that
      * don't need to reach any division chief. See DocumentPolicy::archive()
      * for exactly which documents qualify. Deliberately creates no

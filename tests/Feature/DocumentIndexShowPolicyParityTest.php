@@ -29,9 +29,9 @@ class DocumentIndexShowPolicyParityTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
+    private User $sds;
 
-    private User $ard;
+    private User $asds;
 
     protected function setUp(): void
     {
@@ -39,15 +39,15 @@ class DocumentIndexShowPolicyParityTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
-        $this->ard = User::factory()->create();
-        $this->ard->assignRole('ard');
+        $this->asds = User::factory()->create();
+        $this->asds->assignRole('asds');
     }
 
     private function assertParity(Document $document, User $actor, string $tab): void
@@ -102,31 +102,31 @@ class DocumentIndexShowPolicyParityTest extends TestCase
         $this->assertParity($document, $chief, 'outgoing');
     }
 
-    public function test_route_parity_for_rd_when_already_routed_via_is_rd_routing(): void
+    public function test_route_parity_for_sds_when_already_routed_via_is_sds_routing(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Routed memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Routed memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/a.pdf', 'file_hash' => hash('sha256', 'a'),
             'status' => DocumentStatus::Routed,
         ]);
 
         DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
-            'is_rush' => false, 'routed_at' => now(), 'is_rd_routing' => true,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
+            'is_rush' => false, 'routed_at' => now(), 'is_sds_routing' => true,
         ]);
 
-        $this->assertParity($document, $this->rd, 'incoming');
+        $this->assertParity($document, $this->sds, 'incoming');
     }
 
-    public function test_route_parity_for_ard_on_a_fresh_document(): void
+    public function test_route_parity_for_asds_on_a_fresh_document(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Fresh memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Fresh memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/b.pdf', 'file_hash' => hash('sha256', 'b'),
             'status' => DocumentStatus::Received,
         ]);
 
-        $this->assertParity($document, $this->ard, 'incoming');
+        $this->assertParity($document, $this->asds, 'incoming');
     }
 
     public function test_route_parity_for_a_division_chief_who_has_acknowledged_their_assignment(): void
@@ -136,14 +136,14 @@ class DocumentIndexShowPolicyParityTest extends TestCase
         $chief->assignRole('division_chief');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Acknowledged memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Acknowledged memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/c.pdf', 'file_hash' => hash('sha256', 'c'),
             'status' => DocumentStatus::Routed,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
-            'is_rush' => false, 'routed_at' => now(), 'is_rd_routing' => true,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
+            'is_rush' => false, 'routed_at' => now(), 'is_sds_routing' => true,
         ]);
 
         DocumentRoutingRecipient::create([

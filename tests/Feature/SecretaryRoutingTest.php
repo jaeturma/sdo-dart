@@ -15,16 +15,16 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * The RD's own secretary (ORD/ORD Proper) can route incoming documents in
- * lieu of the RD — same "once each" rule, same blanket incoming visibility.
- * A secretary anywhere outside the ORD division tree does not get this.
+ * The SDS's own secretary (OSDS/OSDS Proper) can route incoming documents in
+ * lieu of the SDS — same "once each" rule, same blanket incoming visibility.
+ * A secretary anywhere outside the OSDS division tree does not get this.
  */
 class SecretaryRoutingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private Division $ordp;
+    private Division $osds;
+    private Division $osdsp;
     private User $secretary;
     private User $chief;
 
@@ -34,21 +34,21 @@ class SecretaryRoutingTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord  = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $this->ord->id]);
+        $this->osds  = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $this->osds->id]);
 
-        $this->secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $this->secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $this->secretary->assignRole('secretary');
 
         $chiefDivision = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
         $this->chief = User::factory()->create(['division_id' => $chiefDivision->id]);
         $this->chief->assignRole('division_chief');
 
-        Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $chiefDivision->id]);
+        Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $chiefDivision->id]);
     }
 
     private function receivedDocument(User $uploader): Document
@@ -60,7 +60,7 @@ class SecretaryRoutingTest extends TestCase
         ]);
     }
 
-    public function test_ord_secretary_can_view_and_route_a_document_she_did_not_upload(): void
+    public function test_osds_secretary_can_view_and_route_a_document_she_did_not_upload(): void
     {
         // Uploaded by an unrelated user in an unrelated division — the
         // secretary isn't the uploader, isn't a recipient, and isn't in the
@@ -87,7 +87,7 @@ class SecretaryRoutingTest extends TestCase
         $this->assertSame(DocumentStatus::Routed, $document->fresh()->status);
     }
 
-    public function test_ord_secretary_can_only_route_a_document_once(): void
+    public function test_osds_secretary_can_only_route_a_document_once(): void
     {
         $document = $this->receivedDocument($this->secretary);
 
@@ -101,7 +101,7 @@ class SecretaryRoutingTest extends TestCase
         $this->assertFalse($this->secretary->can('route', $document->fresh()));
     }
 
-    public function test_ord_secretary_sees_routable_documents_in_her_for_action_tab(): void
+    public function test_osds_secretary_sees_routable_documents_in_her_for_action_tab(): void
     {
         $division = Division::create(['name' => 'Finance Division', 'code' => 'FD']);
         $uploader = User::factory()->create(['division_id' => $division->id]);
@@ -117,17 +117,17 @@ class SecretaryRoutingTest extends TestCase
     }
 
     /**
-     * Reproduces a real bug report: the ORDP secretary uploads an incoming
+     * Reproduces a real bug report: the OSDSP secretary uploads an incoming
      * document (auto-forwarding it to Records Section), and then has no
      * "Route Document" option on her own upload at all. Root cause: the
      * auto-forward routing is recorded with routed_by = her own id, which
      * collided with the new once-each "has this user already routed it"
-     * check once she gained the same routing ability as RD/ARD — the
+     * check once she gained the same routing ability as SDS/ASDS — the
      * automatic system action was incorrectly consuming her one manual
      * routing turn. She must still be able to route it herself afterward
-     * (e.g. on to a division chief), same as the RD always could.
+     * (e.g. on to a division chief), same as the SDS always could.
      */
-    public function test_ordp_secretary_can_still_route_her_own_upload_after_auto_forward(): void
+    public function test_osdsp_secretary_can_still_route_her_own_upload_after_auto_forward(): void
     {
         $response = $this->actingAs($this->secretary)->post('/documents/incoming', [
             'title'         => 'Self-uploaded memo',
@@ -163,7 +163,7 @@ class SecretaryRoutingTest extends TestCase
         $this->assertFalse($this->secretary->can('route', $document->fresh()));
     }
 
-    public function test_secretary_outside_ord_cannot_route(): void
+    public function test_secretary_outside_osds_cannot_route(): void
     {
         $otherDivision = Division::create(['name' => 'Curriculum and Learning Management Division', 'code' => 'CLMD']);
         $otherSecretary = User::factory()->create(['division_id' => $otherDivision->id]);

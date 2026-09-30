@@ -23,7 +23,7 @@ class DocumentControlNumberAssignmentTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'kmt_focal'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary', 'kmt_focal'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
     }
@@ -47,9 +47,9 @@ class DocumentControlNumberAssignmentTest extends TestCase
 
     public function test_incoming_submission_is_assigned_a_control_number(): void
     {
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $ord->id]);
-        $secretary = User::factory()->create(['division_id' => $ordp->id]);
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $osds->id]);
+        $secretary = User::factory()->create(['division_id' => $osdsp->id]);
         $secretary->assignRole('secretary');
 
         $this->actingAs($secretary)->post('/documents/incoming', [

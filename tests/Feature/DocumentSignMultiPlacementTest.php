@@ -21,7 +21,7 @@ class DocumentSignMultiPlacementTest extends TestCase
     use RefreshDatabase;
 
     private User $secretary;
-    private User $rd;
+    private User $sds;
 
     protected function setUp(): void
     {
@@ -29,12 +29,12 @@ class DocumentSignMultiPlacementTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'division_chief', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'division_chief', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->secretary = User::factory()->create();
         $this->secretary->assignRole('secretary');
@@ -74,6 +74,59 @@ class DocumentSignMultiPlacementTest extends TestCase
             ->assertSessionHasErrors(['placements.0.y_percent', 'placements.0.width_percent']);
     }
 
+    // ── SDS hasn't uploaded a signing credential yet ──
+
+    /**
+     * Without the SDS's credential there's no Sign button, so the secretary
+     * is told why (and to ask the SDS to upload one) instead of the button
+     * silently not appearing.
+     */
+    public function test_secretary_is_told_when_the_sds_has_not_uploaded_a_signature(): void
+    {
+        Storage::fake('documents');
+        $document = $this->approvedDocument();
+
+        $this->actingAs($this->secretary)
+            ->get(route('documents.show', $document))
+            ->assertInertia(fn ($page) => $page
+                ->where('canSign', false)
+                ->where('sdsSignatureMissing', true));
+    }
+
+    public function test_the_notice_gives_way_to_the_sign_button_once_the_sds_uploads_a_signature(): void
+    {
+        Storage::fake('documents');
+        $this->giveDummyCredential();
+        $document = $this->approvedDocument();
+
+        $this->actingAs($this->secretary)
+            ->get(route('documents.show', $document))
+            ->assertInertia(fn ($page) => $page
+                ->where('canSign', true)
+                ->where('sdsSignatureMissing', false));
+    }
+
+    public function test_only_the_secretary_sees_the_missing_signature_notice(): void
+    {
+        Storage::fake('documents');
+        $document = $this->approvedDocument();
+
+        $this->actingAs($this->sds)
+            ->get(route('documents.show', $document))
+            ->assertInertia(fn ($page) => $page->where('sdsSignatureMissing', false));
+    }
+
+    public function test_no_missing_signature_notice_before_the_document_is_approved(): void
+    {
+        Storage::fake('documents');
+        $document = $this->approvedDocument();
+        $document->update(['status' => DocumentStatus::PendingSdsReview]);
+
+        $this->actingAs($this->secretary)
+            ->get(route('documents.show', $document))
+            ->assertInertia(fn ($page) => $page->where('sdsSignatureMissing', false));
+    }
+
     // ── Full end-to-end signing with a real (self-signed, test-only) P12 ──
 
     public function test_multiple_placements_across_pages_produce_one_signature_with_all_placements_recorded(): void
@@ -86,11 +139,11 @@ class DocumentSignMultiPlacementTest extends TestCase
         Storage::fake('credentials');
 
         [$p12, $password] = $this->makeSelfSignedP12();
-        $p12Path = "p12/{$this->rd->id}/test.p12";
+        $p12Path = "p12/{$this->sds->id}/test.p12";
         Storage::disk('credentials')->put($p12Path, $p12);
 
         UserSigningCredential::create([
-            'user_id'  => $this->rd->id,
+            'user_id'  => $this->sds->id,
             'p12_path' => $p12Path,
             'p12_hash' => hash('sha256', $p12),
         ]);
@@ -138,11 +191,11 @@ class DocumentSignMultiPlacementTest extends TestCase
         Storage::fake('credentials');
 
         [$p12, $password] = $this->makeSelfSignedP12();
-        $p12Path = "p12/{$this->rd->id}/test.p12";
+        $p12Path = "p12/{$this->sds->id}/test.p12";
         Storage::disk('credentials')->put($p12Path, $p12);
 
         UserSigningCredential::create([
-            'user_id'  => $this->rd->id,
+            'user_id'  => $this->sds->id,
             'p12_path' => $p12Path,
             'p12_hash' => hash('sha256', $p12),
         ]);
@@ -180,11 +233,11 @@ class DocumentSignMultiPlacementTest extends TestCase
         Storage::fake('credentials');
 
         [$p12, $password] = $this->makeSelfSignedP12();
-        $p12Path = "p12/{$this->rd->id}/test.p12";
+        $p12Path = "p12/{$this->sds->id}/test.p12";
         Storage::disk('credentials')->put($p12Path, $p12);
 
         UserSigningCredential::create([
-            'user_id'  => $this->rd->id,
+            'user_id'  => $this->sds->id,
             'p12_path' => $p12Path,
             'p12_hash' => hash('sha256', $p12),
         ]);
@@ -204,15 +257,15 @@ class DocumentSignMultiPlacementTest extends TestCase
 
     /**
      * A credential that exists (satisfies DocumentPolicy::sign()'s
-     * "RD has a credential" check so requests reach form validation) but
+     * "SDS has a credential" check so requests reach form validation) but
      * isn't a usable P12 — only for the validation-layer tests above, which
      * never actually attempt to decrypt it.
      */
     private function giveDummyCredential(): void
     {
         UserSigningCredential::create([
-            'user_id'  => $this->rd->id,
-            'p12_path' => "p12/{$this->rd->id}/dummy.p12",
+            'user_id'  => $this->sds->id,
+            'p12_path' => "p12/{$this->sds->id}/dummy.p12",
             'p12_hash' => hash('sha256', 'dummy'),
         ]);
     }
@@ -251,7 +304,7 @@ class DocumentSignMultiPlacementTest extends TestCase
     private function makeSelfSignedP12(): array
     {
         $password = 'test-password';
-        $dn = ['commonName' => 'Test Regional Director', 'countryName' => 'PH'];
+        $dn = ['commonName' => 'Test Schools Division Superintendent', 'countryName' => 'PH'];
         $keyConfig = ['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA];
 
         foreach ([null, $this->opensslConfigPath()] as $configPath) {

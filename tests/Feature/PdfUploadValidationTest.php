@@ -21,7 +21,7 @@ class PdfUploadValidationTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
+    private User $sds;
 
     protected function setUp(): void
     {
@@ -29,10 +29,10 @@ class PdfUploadValidationTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        Role::firstOrCreate(['name' => 'rd', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'sds', 'guard_name' => 'web']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
     }
 
     public function test_a_real_pdf_is_accepted_even_when_the_mime_type_is_reported_as_something_else(): void
@@ -44,7 +44,7 @@ class PdfUploadValidationTest extends TestCase
             ->createWithContent('scanned.pdf', "%PDF-1.4\n%fake but valid signature")
             ->mimeType('application/octet-stream');
 
-        $this->actingAs($this->rd)->post('/documents/incoming', [
+        $this->actingAs($this->sds)->post('/documents/incoming', [
             'title'         => 'Scanned memo',
             'source_origin' => 'Central Office',
             'file'          => $file,
@@ -57,7 +57,7 @@ class PdfUploadValidationTest extends TestCase
     {
         $file = UploadedFile::fake()->createWithContent('not-really-a-pdf.pdf', 'this is just plain text, not a pdf');
 
-        $this->actingAs($this->rd)->post('/documents/incoming', [
+        $this->actingAs($this->sds)->post('/documents/incoming', [
             'title'         => 'Fake memo',
             'source_origin' => 'Central Office',
             'file'          => $file,
@@ -70,7 +70,7 @@ class PdfUploadValidationTest extends TestCase
     {
         $file = UploadedFile::fake()->createWithContent('memo.docx', '%PDF-1.4 content but wrong extension');
 
-        $this->actingAs($this->rd)->post('/documents/incoming', [
+        $this->actingAs($this->sds)->post('/documents/incoming', [
             'title'         => 'Wrong extension memo',
             'source_origin' => 'Central Office',
             'file'          => $file,

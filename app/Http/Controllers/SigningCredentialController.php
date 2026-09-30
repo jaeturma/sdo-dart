@@ -31,7 +31,7 @@ class SigningCredentialController extends Controller
 
         $users = User::with(['signingCredential', 'roles', 'division'])
             ->where(function ($q) use ($recordsSectionId) {
-                $q->whereHas('roles', fn ($r) => $r->whereIn('name', ['rd', 'ard', 'division_chief']))
+                $q->whereHas('roles', fn ($r) => $r->whereIn('name', ['sds', 'asds', 'division_chief']))
                     ->when($recordsSectionId, fn ($q2) => $q2->orWhere('division_id', $recordsSectionId));
             })
             ->orderBy('name')

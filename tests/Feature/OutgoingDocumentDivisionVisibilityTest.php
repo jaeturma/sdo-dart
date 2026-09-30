@@ -39,7 +39,7 @@ class OutgoingDocumentDivisionVisibilityTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -131,7 +131,7 @@ class OutgoingDocumentDivisionVisibilityTest extends TestCase
         foreach ([
             DocumentStatus::Submitted,
             DocumentStatus::PendingDivisionChiefReview,
-            DocumentStatus::PendingArdReview,
+            DocumentStatus::PendingAsdsReview,
             DocumentStatus::Approved,
             DocumentStatus::Signed,
             DocumentStatus::Released,

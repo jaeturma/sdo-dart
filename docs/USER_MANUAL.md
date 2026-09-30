@@ -15,8 +15,8 @@ This manual explains how to use DART day-to-day: logging in, submitting and revi
 | **Division Chief** | Reviews outgoing documents from their division; routes incoming documents to their own staff |
 | **ASDS** (Assistant Schools Division Superintendent) | Recommends outgoing documents for approval; routes incoming documents |
 | **SDS** (Schools Division Superintendent) | Gives final approval on outgoing documents; routes incoming documents; is the identity behind every digital signature |
-| **Secretary** | Uploads incoming documents on behalf of the office; signs approved outgoing documents using the SDS's credential; the SDS's own secretary (OSDS/OSDS Proper) can also route incoming documents in lieu of the SDS |
-| **Records Section staff** | Applies the final release stamp to signed outgoing documents; may receive auto-forwarded incoming documents |
+| **Secretary to the SDS** | Uploads incoming documents on behalf of the SDS's office; signs approved outgoing documents using the SDS's credential; routes incoming documents in lieu of the SDS. Assign this role only to the SDS's own secretary (in the OSDS or one of its sub-offices) — anyone with it can sign on the SDS's behalf |
+| **Records Section staff** | Anyone assigned to the office the Admin designated as the Records Section. Applies the final release stamp to signed outgoing documents; uploads incoming documents; receives the SDS secretary's incoming uploads for filing; views the daily Incoming Documents Log |
 | **Admin** | Manages user accounts, roles, divisions, and signing credentials; not part of the review chain |
 
 Your role determines what you see in the navigation bar and what actions are available on a document — DART hides actions you're not authorized to take rather than showing an error after the fact.
@@ -50,6 +50,8 @@ The top navigation bar shows, depending on your role:
 Use this when your office is producing a document (a memo, letter, endorsement, etc.) that needs to go up the chain for approval.
 
 ### 3.1 Submitting a document
+Unit Heads, Division Chiefs, Detailed Officials, and the SDS's secretary can always create outgoing documents. A **Staff / Originator** can only do so if they are also tagged **KMT Focal** — unless an Admin has switched on **Allow All Originators** (see [Section 8](#8-user-management-admin-only)), in which case every Staff / Originator can.
+
 1. From Documents, click **+ New Outgoing**.
 2. Fill in the **Title** and a **Description/Purpose**.
 3. Attach the document as a **PDF file** (max 10 MB). DART checks the actual file contents, not just the `.pdf` extension, so a renamed non-PDF file will be rejected.
@@ -62,6 +64,7 @@ DART automatically decides the starting review stage so nobody reviews their own
 - If a **Unit Head** submits their own document, it skips straight to Division Chief.
 - If a **Division Chief** submits their own document, it skips straight to ASDS.
 - If a division has no Division Chief, that stage is skipped automatically.
+- If there is no Unit Head **and** no Division Chief above you (for example, staff in an OSDS office such as the Legal Unit, since the OSDS has no division chief), your document goes straight to the ASDS.
 - The ASDS stage can be disabled entirely by an Admin, in which case documents go straight to the SDS.
 
 The document's page shows a **Review Chain** stepper so you can see exactly which stages apply to this document and where it currently sits.
@@ -111,13 +114,13 @@ After a document is signed, Records Section staff apply a **second, separate sta
 Use this for documents received from outside the office that need to be routed to the right people internally.
 
 ### 4.1 Uploading
-Only the **SDS**, **Admin**, or the **Secretary** can upload an incoming document:
+Only the **SDS**, **Admin**, the **SDS's secretary**, or **Records Section** staff can upload an incoming document:
 
 1. From Documents, click **+ Upload Incoming**.
 2. Fill in **Title**, **Source/Origin**, **Reference Number**, and any **Remarks**.
 3. Attach the PDF and submit.
 
-**Automatic forwarding**: if the Secretary uploading is from the OSDS Proper division, the document is routed automatically to the Records Section — no manual routing step needed.
+**Automatic forwarding**: when the SDS's secretary uploads a document, a copy is automatically routed to the Records Section for filing. The SDS or the SDS's secretary still routes the document itself to the right division. (If no office has been designated as the Records Section yet, the secretary sees a warning and the Admin is notified.)
 
 ### 4.2 Routing
 For anything not auto-forwarded, the **SDS**, **ASDS**, the **SDS's own secretary** (acting in lieu of the SDS), or a **Division Chief** (routing within their own division) routes the document:
@@ -174,12 +177,19 @@ DART reads and stores your certificate's subject, serial number, and validity da
 
 From the **Users** page, an Admin can:
 
-- **Add** or **edit** a user: set their name, email, role (Admin, Schools Division Superintendent, Assistant Schools Division Superintendent, Division Chief, Unit/Section Head, Staff/Originator, or Secretary), and division.
+- **Add** or **edit** a user: set their name, email, role (Admin, Schools Division Superintendent, Assistant Schools Division Superintendent, Division Chief, Unit/Section Head, Staff/Originator, Secretary to the SDS, or Detailed Official), division, and whether they are **KMT Focal**.
 - **Reset a password** — this sets a temporary default password and forces the user to change it on next login.
 - **Activate / Deactivate** an account.
 - **Delete** a user.
 - **Generate a Magic Link** — SDS and ASDS accounts only (see [Section 2](#getting-started)).
-- Toggle office-wide settings: enforce 2FA for everyone, force a password reset for all users, enforce email verification, and enable/disable the ASDS review stage in the outgoing approval chain.
+- Toggle office-wide settings: enforce 2FA for everyone, force a password reset for all users, enforce email verification, enable/disable the ASDS review stage in the outgoing approval chain, and **Allow All Originators** — when on, every Staff / Originator can create outgoing documents without the KMT Focal tag; switching it back off restores the KMT-only rule (nobody's KMT Focal tag is changed either way).
+
+### Offices (Admin only)
+From the **Offices** page, an Admin sets up the SDO's structure. Three top-level offices are created at installation — the OSDS, CID, and SGOD; add sub-offices (Records Section, Legal Unit, ICT Unit, Personnel, and so on) under their parent office.
+
+- **Designate the Records Section**: edit (or create) the office that handles receiving and releasing, and tick **This Office Is the Records Section**. Only one office can hold this at a time — ticking it on another office moves it. Until one is designated, the Offices page shows a warning, and signed documents cannot be released.
+- **Allow SDS to Route Directly to This Unit's Head**: for sub-offices whose head should receive incoming documents straight from the SDS, like a division chief does.
+- **Code**: optional short code used as the office prefix in outgoing control numbers (e.g. `OUTGOING-CID-2026-09-001`); a sub-office without its own code uses its parent's. The OSDS office's code is fixed and the OSDS office cannot be deleted, because the system relies on it.
 
 ---
 

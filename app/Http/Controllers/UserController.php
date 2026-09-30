@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
-use App\Models\ArdAvailabilitySetting;
+use App\Models\AsdsAvailabilitySetting;
 use App\Models\Division;
 use App\Models\EmailVerificationSetting;
 use App\Models\MagicLinkSecret;
+use App\Models\OriginatorUploadSetting;
 use App\Models\PasswordPolicySetting;
 use App\Models\TwoFactorSetting;
 use App\Models\User;
@@ -24,12 +25,15 @@ class UserController extends Controller
 {
     private const ROLES = [
         'admin' => 'Admin',
-        'rd' => 'Schools Division Superintendent',
-        'ard' => 'Assistant Schools Division Superintendent',
+        'sds' => 'Schools Division Superintendent',
+        'asds' => 'Assistant Schools Division Superintendent',
         'division_chief' => 'Division Chief',
         'unit_head' => 'Unit / Section Head',
         'originator' => 'Staff / Originator',
-        'secretary' => 'Secretary',
+        // Every secretary can sign approved documents with the SDS's
+        // credential (DocumentPolicy::sign()), so the label makes clear this
+        // is the SDS's own secretary, not a division's admin aide.
+        'secretary' => 'Secretary to the SDS',
         'detailed_staff' => 'Detailed Official',
     ];
 
@@ -69,7 +73,8 @@ class UserController extends Controller
             'twoFactorEnforced' => TwoFactorSetting::isEnforced(),
             'passwordForceResetAt' => PasswordPolicySetting::forceResetAt()?->toIso8601String(),
             'emailVerificationEnforced' => EmailVerificationSetting::isEnforced(),
-            'ardAvailable' => ArdAvailabilitySetting::isAvailable(),
+            'asdsAvailable' => AsdsAvailabilitySetting::isAvailable(),
+            'allOriginatorsCanUpload' => OriginatorUploadSetting::allowsAllOriginators(),
         ]);
     }
 
@@ -81,6 +86,7 @@ class UserController extends Controller
             'user' => null,
             'divisions' => $this->divisionOptions(),
             'roles' => self::ROLES,
+            'allOriginatorsCanUpload' => OriginatorUploadSetting::allowsAllOriginators(),
         ]);
     }
 
@@ -117,6 +123,7 @@ class UserController extends Controller
             ],
             'divisions' => $this->divisionOptions(),
             'roles' => self::ROLES,
+            'allOriginatorsCanUpload' => OriginatorUploadSetting::allowsAllOriginators(),
         ]);
     }
 

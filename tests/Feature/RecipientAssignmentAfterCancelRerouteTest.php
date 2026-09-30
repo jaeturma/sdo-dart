@@ -14,7 +14,7 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Real reported bug: the RD's secretary routes an incoming document to a
+ * Real reported bug: the SDS's secretary routes an incoming document to a
  * division chief, cancels that routing before the chief acts (e.g. wrong
  * recipient picked), then reroutes it to the SAME chief again. The chief
  * then can't route it to their own staff at all — DocumentController::show()
@@ -31,7 +31,7 @@ class RecipientAssignmentAfterCancelRerouteTest extends TestCase
     use RefreshDatabase;
 
     private Division $ad;
-    private User $rd;
+    private User $sds;
     private User $chief;
     private User $staff;
 
@@ -41,14 +41,14 @@ class RecipientAssignmentAfterCancelRerouteTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'division_chief', 'rd'] as $role) {
+        foreach (['admin', 'originator', 'division_chief', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->ad->id]);
         $this->chief->assignRole('division_chief');
@@ -60,13 +60,13 @@ class RecipientAssignmentAfterCancelRerouteTest extends TestCase
     public function test_chief_sees_the_new_pending_assignment_not_the_cancelled_one_after_reroute(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/memo.pdf', 'file_hash' => hash('sha256', 'memo'),
             'status' => DocumentStatus::Received,
         ]);
 
         // First routing to the chief, cancelled before she acts on it.
-        $this->actingAs($this->rd)->post(route('documents.routings.store', $document), [
+        $this->actingAs($this->sds)->post(route('documents.routings.store', $document), [
             'action'   => 'appropriate_action',
             'user_ids' => [$this->chief->id],
         ]);
@@ -74,12 +74,12 @@ class RecipientAssignmentAfterCancelRerouteTest extends TestCase
         $document->refresh()->load('routings.recipients');
         $firstRouting = $document->routings->first();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->delete(route('documents.routings.cancel', [$document, $firstRouting]))
             ->assertRedirect();
 
         // Rerouted to the same chief.
-        $this->actingAs($this->rd)->post(route('documents.routings.store', $document), [
+        $this->actingAs($this->sds)->post(route('documents.routings.store', $document), [
             'action'   => 'appropriate_action',
             'user_ids' => [$this->chief->id],
         ]);

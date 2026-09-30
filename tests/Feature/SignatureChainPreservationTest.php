@@ -23,7 +23,7 @@ use Tests\TestCase;
  * to a document must survive every subsequent step in the pipeline,
  * instead of being silently discarded the way the old FPDI/TCPDF pipeline
  * did — confirmed during planning that DocumentReleaseStamper's identical
- * FPDI-import mechanism meant the RD's own signature never made it into
+ * FPDI-import mechanism meant the SDS's own signature never made it into
  * released/*.pdf, the file Records Section actually downloads and emails
  * out. A true PDF incremental update means the entire earlier file's bytes
  * are an exact prefix of the later file — the strongest, cheapest proof
@@ -38,7 +38,7 @@ class SignatureChainPreservationTest extends TestCase
 
     private Division $records;
 
-    private User $rd;
+    private User $sds;
 
     private User $secretary;
 
@@ -50,15 +50,15 @@ class SignatureChainPreservationTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->secretary = User::factory()->create();
         $this->secretary->assignRole('secretary');
@@ -67,7 +67,7 @@ class SignatureChainPreservationTest extends TestCase
         $this->recordsClerk->assignRole('originator');
     }
 
-    public function test_the_rd_signed_bytes_are_an_exact_prefix_of_the_released_file(): void
+    public function test_the_sds_signed_bytes_are_an_exact_prefix_of_the_released_file(): void
     {
         if (! function_exists('openssl_pkey_new')) {
             $this->markTestSkipped('openssl extension not available.');
@@ -76,13 +76,13 @@ class SignatureChainPreservationTest extends TestCase
         Storage::fake('documents');
         Storage::fake('credentials');
 
-        [$rdP12, $rdPassword] = $this->makeSelfSignedP12('Test RD');
-        $rdP12Path = "p12/{$this->rd->id}/rd.p12";
-        Storage::disk('credentials')->put($rdP12Path, $rdP12);
+        [$sdsP12, $sdsPassword] = $this->makeSelfSignedP12('Test SDS');
+        $sdsP12Path = "p12/{$this->sds->id}/sds.p12";
+        Storage::disk('credentials')->put($sdsP12Path, $sdsP12);
         UserSigningCredential::create([
-            'user_id' => $this->rd->id,
-            'p12_path' => $rdP12Path,
-            'p12_hash' => hash('sha256', $rdP12),
+            'user_id' => $this->sds->id,
+            'p12_path' => $sdsP12Path,
+            'p12_hash' => hash('sha256', $sdsP12),
         ]);
 
         [$recordsP12, $recordsPassword] = $this->makeSelfSignedP12('Test Records Section');
@@ -97,7 +97,7 @@ class SignatureChainPreservationTest extends TestCase
         $document = $this->approvedDocument();
 
         $this->actingAs($this->secretary)->post(route('documents.sign.store', $document), [
-            'p12_password' => $rdPassword,
+            'p12_password' => $sdsPassword,
             'placements' => [
                 ['page' => 1, 'x_percent' => 10, 'y_percent' => 80, 'width_percent' => 30],
             ],
@@ -123,7 +123,7 @@ class SignatureChainPreservationTest extends TestCase
         $stamp = DocumentReleaseStamp::where('document_id', $document->id)->firstOrFail();
         $releasedBytes = file_get_contents(Storage::disk('documents')->path($stamp->stamped_file_path));
 
-        // The actual regression assertion: the RD's fully-signed file's
+        // The actual regression assertion: the SDS's fully-signed file's
         // bytes are an exact prefix of the released file — proof this is a
         // true incremental update (append-only), not a rewrite that
         // silently dropped the earlier signature the way the old
@@ -153,7 +153,7 @@ class SignatureChainPreservationTest extends TestCase
 
     /**
      * See DocumentSignMultiPlacementTest::makeSelfSignedP12() — identical
-     * approach, parameterized by common name so RD/Records Section get
+     * approach, parameterized by common name so SDS/Records Section get
      * distinct certs.
      */
     private function makeSelfSignedP12(string $commonName): array

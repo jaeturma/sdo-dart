@@ -18,6 +18,7 @@ const props = defineProps({
     canArchive:          Boolean,
     recipientAssignment: Object,
     recipientMayDeferCompletion: Boolean,
+    sdsSignatureMissing: Boolean,
 });
 
 // ── Status helpers ──────────────────────────────────────────────────────────
@@ -25,8 +26,8 @@ const STATUS_LABEL = {
     draft: 'Draft', submitted: 'Submitted',
     pending_unit_head_review: 'Pending Unit Head Review',
     pending_division_chief_review: 'Pending DC Review',
-    pending_ard_review: 'Pending Recommending Approval',
-    pending_rd_review: 'Pending SDS Review',
+    pending_asds_review: 'Pending Recommending Approval',
+    pending_sds_review: 'Pending SDS Review',
     approved: 'Approved', for_comment: 'For Comment',
     returned_for_revision: 'Returned', rejected: 'Rejected',
     pending_signature: 'Pending Signature', signed: 'Signed', released: 'Released',
@@ -38,8 +39,8 @@ const STATUS_CLASS = {
     submitted: 'bg-yellow-100 text-yellow-800',
     pending_unit_head_review: 'bg-orange-100 text-orange-800',
     pending_division_chief_review: 'bg-yellow-100 text-yellow-800',
-    pending_ard_review: 'bg-indigo-100 text-indigo-800',
-    pending_rd_review: 'bg-indigo-100 text-indigo-800',
+    pending_asds_review: 'bg-indigo-100 text-indigo-800',
+    pending_sds_review: 'bg-indigo-100 text-indigo-800',
     approved: 'bg-green-100 text-green-800',
     for_comment: 'bg-amber-100 text-amber-800',
     returned_for_revision: 'bg-red-100 text-red-800',
@@ -86,8 +87,8 @@ const REVIEW_ACTION_LABEL = {
 const APPROVED_FORWARDED_LABEL_BY_ROLE = {
     unit_head:      'Reviewed & Forwarded',
     division_chief: 'Reviewed & Forwarded',
-    ard:            'Recommended for Approval',
-    rd:             'Approved',
+    asds:            'Recommended for Approval',
+    sds:             'Approved',
 };
 
 const reviewActionLabel = (review) => {
@@ -113,8 +114,8 @@ const ALL_REVIEW_STAGES = [
     { label: 'Submitted',      status: 'submitted' },
     { label: 'Unit Head',      status: 'pending_unit_head_review' },
     { label: 'Division Chief', status: 'pending_division_chief_review' },
-    { label: 'ASDS',           status: 'pending_ard_review' },
-    { label: 'SDS',            status: 'pending_rd_review' },
+    { label: 'ASDS',           status: 'pending_asds_review' },
+    { label: 'SDS',            status: 'pending_sds_review' },
     { label: 'Signed',         status: 'approved' },
 ];
 
@@ -137,19 +138,19 @@ const showDivisionChiefStage = computed(() => {
 // ASDS is skipped for a document entirely when the ASDS-availability toggle
 // was off at the time it passed division-chief-level review (or on
 // self-upload by a unit head/division chief) — see
-// ArdAvailabilitySetting::nextAfterDivisionChief(). Same detection pattern
+// AsdsAvailabilitySetting::nextAfterDivisionChief(). Same detection pattern
 // as Unit Head/Division Chief above: show it only if the document is
 // currently there or a review was actually recorded for that role.
-const showArdStage = computed(() => {
+const showAsdsStage = computed(() => {
     const reviews = props.document.reviews ?? [];
-    return props.document.status === 'pending_ard_review'
-        || reviews.some(r => r.role_at_review === 'ard');
+    return props.document.status === 'pending_asds_review'
+        || reviews.some(r => r.role_at_review === 'asds');
 });
 
 const REVIEW_STAGES = computed(() => ALL_REVIEW_STAGES.filter(stage => {
     if (stage.status === 'pending_unit_head_review') return showUnitHeadStage.value;
     if (stage.status === 'pending_division_chief_review') return showDivisionChiefStage.value;
-    if (stage.status === 'pending_ard_review') return showArdStage.value;
+    if (stage.status === 'pending_asds_review') return showAsdsStage.value;
     return true;
 }));
 
@@ -198,15 +199,15 @@ const remarksRequiredForAction = computed(() =>
 const canSubmitReview = computed(() => {
     if (remarksRequiredForAction.value && reviewForm.remarks.trim() === '') return false;
 
-    return reviewForm.action || (props.document.status === 'pending_rd_review' && reviewForm.remarks.trim() !== '');
+    return reviewForm.action || (props.document.status === 'pending_sds_review' && reviewForm.remarks.trim() !== '');
 });
 
 // Same 'approved_forwarded' action, worded per the current stage: the chief
 // reviews and forwards, the ASDS recommends approval, and only the SDS approves.
 const approveActionLabel = computed(() => {
     switch (props.document.status) {
-        case 'pending_rd_review':             return 'Approve';
-        case 'pending_ard_review':            return 'Recommend for Approval';
+        case 'pending_sds_review':             return 'Approve';
+        case 'pending_asds_review':            return 'Recommend for Approval';
         case 'submitted':
         case 'pending_division_chief_review': return 'Review & Forward';
         default:                              return 'Approve & Forward';
@@ -912,6 +913,23 @@ const complete = () => {
                         </div>
                     </div>
 
+                    <!-- ── Secretary: approved, but the SDS hasn't uploaded a signing credential yet ── -->
+                    <div v-if="sdsSignatureMissing" class="overflow-hidden rounded-lg border-2 border-amber-200 bg-white shadow-sm">
+                        <div class="flex items-start gap-3 bg-amber-50 px-6 py-4">
+                            <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                            </svg>
+                            <div>
+                                <h3 class="text-base font-semibold text-amber-800">Waiting for the SDS's Signature</h3>
+                                <p class="mt-0.5 text-sm text-amber-700">
+                                    The SDS has approved this document, but hasn't uploaded their digital signature yet, so it can't be signed.
+                                    Please ask the SDS to upload their signing certificate under <span class="font-semibold">My Signature</span>.
+                                    The option to sign will appear here once they do.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- ── Records Section: mark released (Signed status) ── -->
                     <div v-if="canRelease" class="overflow-hidden rounded-lg border-2 border-emerald-200 bg-white shadow-sm">
                         <div class="border-b border-emerald-100 bg-emerald-50 px-6 py-4 flex items-start justify-between gap-4">
@@ -969,7 +987,7 @@ const complete = () => {
                                     :placeholder="remarksRequiredForAction ? 'Required — let the originator know what to address.' : 'Optional comments for the originator.'"
                                 />
                                 <p v-if="reviewForm.errors.remarks" class="mt-1 text-sm text-red-600">{{ reviewForm.errors.remarks }}</p>
-                                <p v-if="document.status === 'pending_rd_review'" class="mt-1 text-xs text-gray-500">
+                                <p v-if="document.status === 'pending_sds_review'" class="mt-1 text-xs text-gray-500">
                                     Note: if you enter remarks here, this document will be returned for revision instead of approved — you don't need to pick an action, remarks alone are enough.
                                 </p>
                             </div>
@@ -1790,7 +1808,7 @@ const complete = () => {
                                     class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500"
                                 />
                                 <p v-if="reviewForm.errors.remarks" class="mt-1 text-xs text-red-600">{{ reviewForm.errors.remarks }}</p>
-                                <p v-if="document.status === 'pending_rd_review'" class="mt-1 text-xs text-gray-500">
+                                <p v-if="document.status === 'pending_sds_review'" class="mt-1 text-xs text-gray-500">
                                     Note: if you enter remarks here, this document will be returned for revision instead of approved — you don't need to pick an action, remarks alone are enough.
                                 </p>
                             </div>

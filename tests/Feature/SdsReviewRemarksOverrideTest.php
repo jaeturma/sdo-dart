@@ -16,22 +16,22 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * The RD's own remarks always win over an "Approved" selection at her final
- * approval stage (PendingRdReview) — if she's typed anything into remarks,
+ * The SDS's own remarks always win over an "Approved" selection at her final
+ * approval stage (PendingSdsReview) — if she's typed anything into remarks,
  * the document is returned for revision instead, even though she picked
  * Approve. Only genuinely empty remarks lets an Approve selection actually
  * approve. Scoped strictly to her own stage and only when Approve was
  * picked — 'for_comment'/'rejected' are already deliberate alternate
  * outcomes and are untouched, and other review stages (unit_head/
- * division_chief/ard) are unaffected.
+ * division_chief/asds) are unaffected.
  */
-class RdReviewRemarksOverrideTest extends TestCase
+class SdsReviewRemarksOverrideTest extends TestCase
 {
     use RefreshDatabase;
 
     private Division $division;
 
-    private User $rd;
+    private User $sds;
 
     private User $originator;
 
@@ -41,34 +41,34 @@ class RdReviewRemarksOverrideTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->division = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->originator = User::factory()->create(['division_id' => $this->division->id]);
         $this->originator->assignRole('originator');
     }
 
-    private function pendingRdReviewDocument(): Document
+    private function pendingSdsReviewDocument(): Document
     {
         return Document::create([
-            'type' => DocumentType::Outgoing, 'title' => 'Ready for RD',
+            'type' => DocumentType::Outgoing, 'title' => 'Ready for SDS',
             'uploaded_by' => $this->originator->id, 'division_id' => $this->division->id,
             'file_path' => 'outgoing/a.pdf', 'file_hash' => hash('sha256', 'a'),
-            'status' => DocumentStatus::PendingRdReview,
+            'status' => DocumentStatus::PendingSdsReview,
         ]);
     }
 
     public function test_approve_with_remarks_is_forced_to_returned_for_revision(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'approved_forwarded',
                 'remarks' => 'Please fix section 2 before this can be approved.',
@@ -85,9 +85,9 @@ class RdReviewRemarksOverrideTest extends TestCase
 
     public function test_approve_with_empty_remarks_approves_normally(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'approved_forwarded',
                 'remarks' => '',
@@ -99,9 +99,9 @@ class RdReviewRemarksOverrideTest extends TestCase
 
     public function test_approve_with_whitespace_only_remarks_approves_normally(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'approved_forwarded',
                 'remarks' => "   \n  ",
@@ -113,9 +113,9 @@ class RdReviewRemarksOverrideTest extends TestCase
 
     public function test_for_comment_with_remarks_is_not_coerced_to_returned_for_revision(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'for_comment',
                 'remarks' => 'Just a comment, not a return.',
@@ -127,9 +127,9 @@ class RdReviewRemarksOverrideTest extends TestCase
 
     public function test_rejected_with_remarks_is_not_coerced_to_returned_for_revision(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'rejected',
                 'remarks' => 'This cannot proceed at all.',
@@ -139,11 +139,11 @@ class RdReviewRemarksOverrideTest extends TestCase
         $this->assertSame(DocumentStatus::Rejected, $document->fresh()->status);
     }
 
-    public function test_rd_can_submit_remarks_with_no_action_selected(): void
+    public function test_sds_can_submit_remarks_with_no_action_selected(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'remarks' => 'Send this back, please revise the budget section.',
             ])
@@ -158,17 +158,17 @@ class RdReviewRemarksOverrideTest extends TestCase
         $this->assertSame('Send this back, please revise the budget section.', $review->remarks);
     }
 
-    public function test_rd_submitting_with_no_action_and_no_remarks_still_fails_validation(): void
+    public function test_sds_submitting_with_no_action_and_no_remarks_still_fails_validation(): void
     {
-        $document = $this->pendingRdReviewDocument();
+        $document = $this->pendingSdsReviewDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'remarks' => '',
             ])
             ->assertSessionHasErrors('action');
 
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->fresh()->status);
     }
 
     public function test_division_chief_without_an_action_still_requires_one(): void

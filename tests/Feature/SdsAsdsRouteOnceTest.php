@@ -15,17 +15,17 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Once RD/ARD has personally issued a routing round for a document, the
+ * Once SDS/ASDS has personally issued a routing round for a document, the
  * "Route Document" action should disappear for them — matches the same
  * one-time rule the division chief branch of DocumentPolicy::route() already
  * enforced, and the "For Routing" queue's own exclusion of self-routed docs.
  */
-class RdArdRouteOnceTest extends TestCase
+class SdsAsdsRouteOnceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
-    private User $ard;
+    private User $sds;
+    private User $asds;
     private User $chief;
     private Division $division;
 
@@ -35,15 +35,15 @@ class RdArdRouteOnceTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'division_chief', 'ard', 'rd'] as $role) {
+        foreach (['originator', 'division_chief', 'asds', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
-        $this->ard = User::factory()->create();
-        $this->ard->assignRole('ard');
+        $this->asds = User::factory()->create();
+        $this->asds->assignRole('asds');
 
         $this->division = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
@@ -55,23 +55,23 @@ class RdArdRouteOnceTest extends TestCase
     {
         return Document::create([
             'type' => DocumentType::Incoming, 'title' => 'Inbound memo',
-            'uploaded_by' => $this->rd->id, 'file_path' => 'incoming/a.pdf',
+            'uploaded_by' => $this->sds->id, 'file_path' => 'incoming/a.pdf',
             'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::Received,
         ]);
     }
 
-    public function test_rd_can_route_a_freshly_received_document(): void
+    public function test_sds_can_route_a_freshly_received_document(): void
     {
         $document = $this->receivedDocument();
 
-        $this->assertTrue($this->rd->can('route', $document));
+        $this->assertTrue($this->sds->can('route', $document));
     }
 
-    public function test_route_button_disappears_for_rd_after_rd_routes_it(): void
+    public function test_route_button_disappears_for_sds_after_sds_routes_it(): void
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.routings.store', $document), [
                 'action'   => 'appropriate_action',
                 'user_ids' => [$this->chief->id],
@@ -80,27 +80,27 @@ class RdArdRouteOnceTest extends TestCase
 
         $document->refresh();
         $this->assertSame(DocumentStatus::Routed, $document->status);
-        $this->assertFalse($this->rd->can('route', $document));
+        $this->assertFalse($this->sds->can('route', $document));
 
         // Attempting to hit the routing form/store routes directly is also forbidden now.
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertForbidden();
     }
 
-    public function test_route_button_still_available_for_ard_after_only_rd_has_routed_it(): void
+    public function test_route_button_still_available_for_asds_after_only_sds_has_routed_it(): void
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.routings.store', $document), [
                 'action'   => 'appropriate_action',
                 'user_ids' => [$this->chief->id],
             ])
             ->assertRedirect();
 
-        // A different RD/ARD-role user hasn't personally routed this document
+        // A different SDS/ASDS-role user hasn't personally routed this document
         // yet, so they can still issue their own routing round for it.
-        $this->assertTrue($this->ard->can('route', $document->fresh()));
+        $this->assertTrue($this->asds->can('route', $document->fresh()));
     }
 }

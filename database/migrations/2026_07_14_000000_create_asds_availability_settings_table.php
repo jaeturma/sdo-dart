@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('ard_availability_settings', function (Blueprint $table) {
+        Schema::create('asds_availability_settings', function (Blueprint $table) {
             $table->id();
             $table->boolean('available')->default(true);
             $table->timestamps();
@@ -17,6 +17,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('ard_availability_settings');
+        Schema::dropIfExists('asds_availability_settings');
     }
 };

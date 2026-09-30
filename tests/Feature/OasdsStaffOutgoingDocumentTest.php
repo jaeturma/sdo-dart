@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Enums\DocumentStatus;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\RestrictWeekendAccess;
-use App\Models\ArdAvailabilitySetting;
+use App\Models\AsdsAvailabilitySetting;
 use App\Models\Division;
 use App\Models\Document;
 use App\Models\User;
@@ -15,22 +15,22 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Staff under the Office of the Assistant Regional Director (OARD) report
- * directly to the ARD — unlike ORD's other sub-units (ICTU/LU/PAU), OARD has
- * no unit head of its own, and there's no division chief anywhere in the ORD
- * tree either. Without OutgoingDocumentController::initialStatus()'s OARD
- * check (keyed off the division's 'OARD' code — see the
- * 2026_08_03_123432_add_oard_code_to_divisions_table migration), their
+ * Staff under the Office of the Assistant Schools Division Superintendent (OASDS) report
+ * directly to the ASDS — unlike OSDS's other sub-units (ICTU/LU/PAU), OASDS has
+ * no unit head of its own, and there's no division chief anywhere in the OSDS
+ * tree either. Without OutgoingDocumentController::initialStatus()'s OASDS
+ * check (keyed off the division's 'OASDS' code — see the
+ * 2026_08_03_123432_add_oasds_code_to_divisions_table migration), their
  * uploads would fall through to `Submitted`/division-chief review, which
  * nobody could ever act on.
  */
-class OardStaffOutgoingDocumentTest extends TestCase
+class OasdsStaffOutgoingDocumentTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private Division $oard;
-    private User $ard;
+    private Division $osds;
+    private Division $oasds;
+    private User $asds;
 
     protected function setUp(): void
     {
@@ -38,22 +38,22 @@ class OardStaffOutgoingDocumentTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'kmt_focal', 'ard', 'rd'] as $role) {
+        foreach (['originator', 'kmt_focal', 'asds', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->oard = Division::create([
-            'name' => 'Office of the Assistant Regional Director',
-            'code' => 'OARD',
-            'parent_id' => $this->ord->id,
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->oasds = Division::create([
+            'name' => 'Office of the Assistant Schools Division Superintendent',
+            'code' => 'OASDS',
+            'parent_id' => $this->osds->id,
         ]);
 
-        $this->ard = User::factory()->create(['division_id' => $this->oard->id]);
-        $this->ard->assignRole('ard');
+        $this->asds = User::factory()->create(['division_id' => $this->oasds->id]);
+        $this->asds->assignRole('asds');
     }
 
-    private function uploadAsOardStaff(User $staff, string $title): Document
+    private function uploadAsOasdsStaff(User $staff, string $title): Document
     {
         $this->actingAs($staff)->post('/documents/outgoing', [
             'title' => $title,
@@ -64,17 +64,17 @@ class OardStaffOutgoingDocumentTest extends TestCase
         return Document::firstWhere('title', $title);
     }
 
-    public function test_oard_staff_upload_goes_directly_to_ard_review(): void
+    public function test_oasds_staff_upload_goes_directly_to_asds_review(): void
     {
-        $staff = User::factory()->create(['division_id' => $this->oard->id]);
+        $staff = User::factory()->create(['division_id' => $this->oasds->id]);
         $staff->assignRole(['originator', 'kmt_focal']);
 
-        $document = $this->uploadAsOardStaff($staff, 'OARD staff memo');
+        $document = $this->uploadAsOasdsStaff($staff, 'OASDS staff memo');
 
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
-        $this->assertTrue($this->ard->can('review', $document));
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
+        $this->assertTrue($this->asds->can('review', $document));
 
-        $this->actingAs($this->ard)
+        $this->actingAs($this->asds)
             ->get(route('documents.index', ['tab' => 'for_action']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -83,50 +83,50 @@ class OardStaffOutgoingDocumentTest extends TestCase
     }
 
     /**
-     * Unlike the ORD unit-head/secretary branches (which do honor the
-     * toggle, skipping straight to RD when ARD is marked unavailable), OARD
-     * staff's uploads always target ARD review regardless of it — the
+     * Unlike the OSDS unit-head/secretary branches (which do honor the
+     * toggle, skipping straight to SDS when ASDS is marked unavailable), OASDS
+     * staff's uploads always target ASDS review regardless of it — the
      * toggle exists to bypass her as an *optional* layer for the rest of
      * the org's escalations, but she's still the mandatory, direct reviewer
-     * for her own OARD staff even while that's toggled off, same as any
+     * for her own OASDS staff even while that's toggled off, same as any
      * division chief has no "unavailable" bypass for their own staff either.
      */
-    public function test_oard_staff_upload_still_goes_to_ard_review_even_when_marked_unavailable(): void
+    public function test_oasds_staff_upload_still_goes_to_asds_review_even_when_marked_unavailable(): void
     {
-        ArdAvailabilitySetting::toggle();
-        $this->assertFalse(ArdAvailabilitySetting::isAvailable());
+        AsdsAvailabilitySetting::toggle();
+        $this->assertFalse(AsdsAvailabilitySetting::isAvailable());
 
-        $staff = User::factory()->create(['division_id' => $this->oard->id]);
+        $staff = User::factory()->create(['division_id' => $this->oasds->id]);
         $staff->assignRole(['originator', 'kmt_focal']);
 
-        $document = $this->uploadAsOardStaff($staff, 'OARD staff memo, ARD unavailable');
+        $document = $this->uploadAsOasdsStaff($staff, 'OASDS staff memo, ASDS unavailable');
 
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
-        $this->assertTrue($this->ard->can('review', $document));
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
+        $this->assertTrue($this->asds->can('review', $document));
     }
 
     /**
      * A resubmission after being returned for revision must also skip
-     * straight back to ARD review, not fall through to the unit-head/chief
+     * straight back to ASDS review, not fall through to the unit-head/chief
      * fallback — updateResubmit() reuses initialStatus(), so this is really
-     * confirming that reuse holds for OARD too.
+     * confirming that reuse holds for OASDS too.
      */
-    public function test_oard_staff_resubmission_also_goes_directly_to_ard_review(): void
+    public function test_oasds_staff_resubmission_also_goes_directly_to_asds_review(): void
     {
-        $staff = User::factory()->create(['division_id' => $this->oard->id]);
+        $staff = User::factory()->create(['division_id' => $this->oasds->id]);
         $staff->assignRole(['originator', 'kmt_focal']);
 
-        $document = $this->uploadAsOardStaff($staff, 'OARD staff memo needing revision');
+        $document = $this->uploadAsOasdsStaff($staff, 'OASDS staff memo needing revision');
         $document->update(['status' => DocumentStatus::ReturnedForRevision]);
 
         $this->actingAs($staff)
             ->put(route('documents.outgoing.resubmit.update', $document), [
-                'title' => 'OARD staff memo needing revision',
+                'title' => 'OASDS staff memo needing revision',
                 'description' => 'Fixed as requested.',
                 'file' => UploadedFile::fake()->createWithContent('memo2.pdf', '%PDF-1.4 revised fake pdf content'),
             ])
             ->assertRedirect();
 
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->fresh()->status);
     }
 }

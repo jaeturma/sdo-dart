@@ -14,7 +14,7 @@ class MagicLinkController extends Controller
     public function generate(Request $request, User $targetUser): RedirectResponse
     {
         abort_unless($request->user()->hasRole('admin'), 403);
-        abort_unless($targetUser->hasAnyRole(['rd', 'ard']), 403, 'Magic links can only be generated for the SDS or ASDS.');
+        abort_unless($targetUser->hasAnyRole(['sds', 'asds']), 403, 'Magic links can only be generated for the SDS or ASDS.');
 
         $url = route('magic-login', [
             'uid'       => $targetUser->id,
@@ -36,16 +36,16 @@ class MagicLinkController extends Controller
         );
 
         $user = User::findOrFail($uid);
-        abort_unless($user->hasAnyRole(['rd', 'ard']), 403);
+        abort_unless($user->hasAnyRole(['sds', 'asds']), 403);
 
         Auth::login($user);
         $request->session()->regenerate();
 
         AuditLogger::log($user, null, 'auth.magic_link_used', $request);
 
-        // The RD's magic link is mainly used to jump straight into the
+        // The SDS's magic link is mainly used to jump straight into the
         // documents awaiting her approval, rather than the general dashboard.
-        return $user->hasRole('rd')
+        return $user->hasRole('sds')
             ? redirect()->route('documents.index', ['tab' => 'for_approval'])
             : redirect()->route('dashboard');
     }

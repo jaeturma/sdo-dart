@@ -6,7 +6,7 @@ use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\RestrictWeekendAccess;
-use App\Models\ArdAvailabilitySetting;
+use App\Models\AsdsAvailabilitySetting;
 use App\Models\Division;
 use App\Models\Document;
 use App\Models\User;
@@ -16,9 +16,9 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Staff temporarily "detailed" (seconded) to the Regional Office from
- * elsewhere (e.g. a School Division Office) don't fit anywhere in this app's
- * Division hierarchy, but the RD/her secretary still need to route incoming
+ * Staff temporarily "detailed" (seconded) to this Schools Division Office from
+ * elsewhere (e.g. a school or another division office) don't fit anywhere in this app's
+ * Division hierarchy, but the SDS/her secretary still need to route incoming
  * documents directly to them, and they need to be able to originate their
  * own outgoing documents. See RoleAndDivisionSeeder's 'detailed_staff' role
  * comment and OutgoingDocumentController::initialStatus()/DocumentPolicy::
@@ -28,10 +28,10 @@ class DetailedStaffRoutingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private User $rd;
+    private Division $osds;
+    private User $sds;
     private User $secretary;
-    private User $ard;
+    private User $asds;
     private User $chief;
     private User $detailed;
 
@@ -41,22 +41,22 @@ class DetailedStaffRoutingTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'detailed_staff'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary', 'detailed_staff'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $this->ord->id]);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $this->osds->id]);
         $ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create(['division_id' => $this->ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $this->osds->id]);
+        $this->sds->assignRole('sds');
 
-        $this->secretary = User::factory()->create(['division_id' => $ordp->id]);
+        $this->secretary = User::factory()->create(['division_id' => $osdsp->id]);
         $this->secretary->assignRole('secretary');
 
-        $this->ard = User::factory()->create();
-        $this->ard->assignRole('ard');
+        $this->asds = User::factory()->create();
+        $this->asds->assignRole('asds');
 
         $this->chief = User::factory()->create(['division_id' => $ad->id]);
         $this->chief->assignRole('division_chief');
@@ -69,16 +69,16 @@ class DetailedStaffRoutingTest extends TestCase
     {
         return Document::create([
             'type' => DocumentType::Incoming, 'title' => 'Inbound memo',
-            'uploaded_by' => $this->rd->id, 'file_path' => 'incoming/a.pdf',
+            'uploaded_by' => $this->sds->id, 'file_path' => 'incoming/a.pdf',
             'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::Received,
         ]);
     }
 
-    public function test_rd_sees_detailed_staff_as_a_routing_candidate(): void
+    public function test_sds_sees_detailed_staff_as_a_routing_candidate(): void
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertInertia(fn ($page) => $page->where(
                 'users',
@@ -86,7 +86,7 @@ class DetailedStaffRoutingTest extends TestCase
             ));
     }
 
-    public function test_ord_secretary_sees_detailed_staff_as_a_routing_candidate(): void
+    public function test_osds_secretary_sees_detailed_staff_as_a_routing_candidate(): void
     {
         $document = $this->receivedDocument();
 
@@ -98,11 +98,11 @@ class DetailedStaffRoutingTest extends TestCase
         $this->assertTrue($ids->contains($this->detailed->id));
     }
 
-    public function test_ard_does_not_see_detailed_staff_as_a_routing_candidate(): void
+    public function test_asds_does_not_see_detailed_staff_as_a_routing_candidate(): void
     {
         $document = $this->receivedDocument();
 
-        $response = $this->actingAs($this->ard)
+        $response = $this->actingAs($this->asds)
             ->get(route('documents.routings.candidates', $document))
             ->assertOk();
 
@@ -110,11 +110,11 @@ class DetailedStaffRoutingTest extends TestCase
         $this->assertFalse($ids->contains($this->detailed->id));
     }
 
-    public function test_ard_routing_to_detailed_staff_is_rejected_server_side(): void
+    public function test_asds_routing_to_detailed_staff_is_rejected_server_side(): void
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->ard)
+        $this->actingAs($this->asds)
             ->post(route('documents.routings.store', $document), [
                 'action' => 'appropriate_action',
                 'user_ids' => [$this->detailed->id],
@@ -128,7 +128,7 @@ class DetailedStaffRoutingTest extends TestCase
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->rd)->post(route('documents.routings.store', $document), [
+        $this->actingAs($this->sds)->post(route('documents.routings.store', $document), [
             'action' => 'appropriate_action',
             'user_ids' => [$this->chief->id],
         ]);
@@ -146,11 +146,11 @@ class DetailedStaffRoutingTest extends TestCase
         $this->assertFalse($ids->contains($this->detailed->id));
     }
 
-    public function test_rd_routes_to_detailed_staff_and_they_can_view_and_act_on_it(): void
+    public function test_sds_routes_to_detailed_staff_and_they_can_view_and_act_on_it(): void
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.routings.store', $document), [
                 'action' => 'appropriate_action',
                 'user_ids' => [$this->detailed->id],
@@ -196,7 +196,7 @@ class DetailedStaffRoutingTest extends TestCase
         $this->assertFalse($this->detailed->can('createIncoming', Document::class));
     }
 
-    public function test_detailed_staff_can_create_outgoing_document_and_it_goes_to_ard_review(): void
+    public function test_detailed_staff_can_create_outgoing_document_and_it_goes_to_asds_review(): void
     {
         $this->assertTrue($this->detailed->can('createOutgoing', Document::class));
 
@@ -207,26 +207,26 @@ class DetailedStaffRoutingTest extends TestCase
         ])->assertRedirect();
 
         $document = Document::firstWhere('title', 'Detailed staff memo');
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
-        $this->assertTrue($this->ard->can('review', $document));
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
+        $this->assertTrue($this->asds->can('review', $document));
     }
 
-    public function test_detailed_staff_upload_skips_to_rd_when_ard_unavailable(): void
+    public function test_detailed_staff_upload_skips_to_sds_when_asds_unavailable(): void
     {
-        ArdAvailabilitySetting::toggle();
-        $this->assertFalse(ArdAvailabilitySetting::isAvailable());
+        AsdsAvailabilitySetting::toggle();
+        $this->assertFalse(AsdsAvailabilitySetting::isAvailable());
 
         $this->actingAs($this->detailed)->post('/documents/outgoing', [
-            'title' => 'Detailed staff memo, ARD unavailable',
+            'title' => 'Detailed staff memo, ASDS unavailable',
             'file'  => UploadedFile::fake()->createWithContent('memo.pdf', '%PDF-1.4 fake pdf content for tests'),
             'requires_release' => true,
         ])->assertRedirect();
 
-        $document = Document::firstWhere('title', 'Detailed staff memo, ARD unavailable');
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->status);
+        $document = Document::firstWhere('title', 'Detailed staff memo, ASDS unavailable');
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->status);
     }
 
-    public function test_detailed_staff_resubmission_also_goes_to_ard_review(): void
+    public function test_detailed_staff_resubmission_also_goes_to_asds_review(): void
     {
         $this->actingAs($this->detailed)->post('/documents/outgoing', [
             'title' => 'Detailed staff memo needing revision',
@@ -245,7 +245,7 @@ class DetailedStaffRoutingTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->fresh()->status);
     }
 
     public function test_admin_can_create_a_detailed_staff_user_with_no_division(): void

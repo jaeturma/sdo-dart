@@ -97,7 +97,7 @@ class NotificationDispatcher
      * DocumentScopesTrait::outgoingScope() for the same reasoning applied to
      * status transitions and list visibility). Falls back to the unit head of
      * the document's own division when no chief is found anywhere above it
-     * (e.g. an ORD sub-unit, which has no chief at all).
+     * (e.g. an OSDS sub-unit, which has no chief at all).
      */
     private static function divisionSupervisors(Document $document): \Illuminate\Support\Collection
     {
@@ -114,7 +114,7 @@ class NotificationDispatcher
     }
 
     /**
-     * The secretary's auto-forward-on-intake deliberately doesn't make the RD
+     * The secretary's auto-forward-on-intake deliberately doesn't make the SDS
      * a recipient (she acts on every incoming document directly rather than
      * acknowledging/completing an assignment of her own — see
      * IncomingDocumentController::autoForward()), so documentRouted() alone
@@ -122,7 +122,7 @@ class NotificationDispatcher
      */
     public static function incomingDocumentUploadedBySecretary(Document $document): void
     {
-        Notification::send(User::role('rd')->get(), new DocumentEvent(
+        Notification::send(User::role('sds')->get(), new DocumentEvent(
             $document,
             'New incoming document',
             "\"{$document->title}\" was uploaded and forwarded to Records Section.",

@@ -12,14 +12,14 @@ use Illuminate\Console\Command;
 
 /**
  * Retroactive fix for the "no Route Document button" bug: before this
- * codebase gave ORD unit heads (ICTU/LU/PAU) the same "acknowledge without
+ * codebase gave OSDS unit heads (ICTU/LU/PAU) the same "acknowledge without
  * auto-completing" deferral a division chief gets (see
  * DocumentRoutingRecipientController::acknowledge()'s isDirectRoutableUnitHead()
- * branch — called isOrdUnitHead() at the time this bug existed; the ORD-only
+ * branch — called isOsdsUnitHead() at the time this bug existed; the OSDS-only
  * rule has since been generalized into an admin-configurable per-division
  * flag, but that's irrelevant here since this command only detects
  * historically-corrupted rows from before either version of the deferral
- * existed at all), an ORD unit head's acknowledgement went straight to
+ * existed at all), an OSDS unit head's acknowledgement went straight to
  * Completed in one step — exactly like an ordinary staff recipient. If that
  * was the document's
  * only recipient, DocumentRoutingRecipientController::promoteDocumentIfFullyCompleted()
@@ -39,7 +39,7 @@ use Illuminate\Console\Command;
  * complete() call or routing-onward auto-close) — so this only catches rows
  * that went through the old buggy path, never a legitimately-completed one.
  *
- * Scoped to recipients who are CURRENTLY a division_chief or ORD unit head
+ * Scoped to recipients who are CURRENTLY a division_chief or OSDS unit head
  * (the roles that get this deferral) — an ordinary staff recipient
  * completing in one step is correct, expected behavior, not a bug.
  */
@@ -48,7 +48,7 @@ class FixPrematureRoutingCompletions extends Command
     protected $signature = 'documents:fix-premature-routing-completions
         {--apply : Actually revert affected recipients/documents (omit for a dry-run report only)}';
 
-    protected $description = 'Find (and optionally fix) incoming documents stuck at Completed because a division chief/ORD unit head auto-completed before the routing-deferral fix existed.';
+    protected $description = 'Find (and optionally fix) incoming documents stuck at Completed because a division chief/OSDS unit head auto-completed before the routing-deferral fix existed.';
 
     public function handle(): int
     {
@@ -154,6 +154,6 @@ class FixPrematureRoutingCompletions extends Command
 
         return $user->hasRole('unit_head')
             && $user->division_id !== null
-            && $user->division?->parent?->code === 'ORD';
+            && $user->division?->parent?->code === 'OSDS';
     }
 }

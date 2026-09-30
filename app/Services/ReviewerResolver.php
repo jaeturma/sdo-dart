@@ -29,8 +29,8 @@ class ReviewerResolver
                 ->where(fn ($q) => $q->where('division_id', $document->division_id)
                     ->orWhere('division_id', Division::where('id', $document->division_id)->value('parent_id')))
                 ->get(),
-            DocumentStatus::PendingArdReview => User::role('ard')->get(),
-            DocumentStatus::PendingRdReview  => User::role('rd')->get(),
+            DocumentStatus::PendingAsdsReview => User::role('asds')->get(),
+            DocumentStatus::PendingSdsReview  => User::role('sds')->get(),
             default => collect(),
         };
     }

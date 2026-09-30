@@ -12,7 +12,7 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * RestrictWeekendAccess blocks everyone except RD/admin on Saturday/Sunday —
+ * RestrictWeekendAccess blocks everyone except SDS/admin on Saturday/Sunday —
  * can_login_weekends is a per-user, admin-controlled override (disabled by
  * default) that lets specific staff through anyway.
  */
@@ -33,7 +33,7 @@ class WeekendAccessTest extends TestCase
             EnsureEmailVerifiedIfEnforced::class,
         ]);
 
-        foreach (['admin', 'rd', 'originator'] as $role) {
+        foreach (['admin', 'sds', 'originator'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -74,12 +74,12 @@ class WeekendAccessTest extends TestCase
             ->assertOk();
     }
 
-    public function test_rd_can_always_access_regardless_of_the_flag(): void
+    public function test_sds_can_always_access_regardless_of_the_flag(): void
     {
-        $rd = User::factory()->create(['can_login_weekends' => false]);
-        $rd->assignRole('rd');
+        $sds = User::factory()->create(['can_login_weekends' => false]);
+        $sds->assignRole('sds');
 
-        $this->actingAs($rd)
+        $this->actingAs($sds)
             ->get('/dashboard')
             ->assertOk();
     }

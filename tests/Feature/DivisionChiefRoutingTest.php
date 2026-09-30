@@ -21,7 +21,7 @@ class DivisionChiefRoutingTest extends TestCase
 
     private Division $ad;
     private Division $recordsSection;
-    private User $rd;
+    private User $sds;
     private User $chief;
 
     protected function setUp(): void
@@ -30,15 +30,15 @@ class DivisionChiefRoutingTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->recordsSection = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->recordsSection = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->ad->id]);
         $this->chief->assignRole('division_chief');
@@ -49,7 +49,7 @@ class DivisionChiefRoutingTest extends TestCase
         $document = Document::create([
             'type'      => DocumentType::Incoming,
             'title'     => 'Test memo',
-            'uploaded_by' => $this->rd->id,
+            'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/memo.pdf',
             'file_hash' => hash('sha256', 'memo'),
             'status'    => DocumentStatus::Received,
@@ -57,7 +57,7 @@ class DivisionChiefRoutingTest extends TestCase
 
         $routing = DocumentRouting::create([
             'document_id' => $document->id,
-            'routed_by'   => $this->rd->id,
+            'routed_by'   => $this->sds->id,
             'is_rush'     => false,
             'routed_at'   => now(),
         ]);
@@ -124,7 +124,7 @@ class DivisionChiefRoutingTest extends TestCase
         $document = Document::create([
             'type'        => DocumentType::Incoming,
             'title'       => 'Untouched memo',
-            'uploaded_by' => $this->rd->id,
+            'uploaded_by' => $this->sds->id,
             'file_path'   => 'incoming/2026/07/untouched.pdf',
             'file_hash'   => hash('sha256', 'untouched'),
             'status'      => DocumentStatus::Received,
@@ -139,7 +139,7 @@ class DivisionChiefRoutingTest extends TestCase
         $this->actingAs($this->chief)
             ->post(route('documents.routings.store', $document), [
                 'action'   => 'appropriate_action',
-                'user_ids' => [$this->rd->id],
+                'user_ids' => [$this->sds->id],
             ])
             ->assertForbidden();
     }
@@ -163,7 +163,7 @@ class DivisionChiefRoutingTest extends TestCase
         $this->assertCount(1, $document->routings);
     }
 
-    public function test_chief_cannot_route_to_a_peer_chief_or_the_rd(): void
+    public function test_chief_cannot_route_to_a_peer_chief_or_the_sds(): void
     {
         $document = $this->routeDocumentToChief();
 
@@ -181,7 +181,7 @@ class DivisionChiefRoutingTest extends TestCase
         $this->actingAs($this->chief)
             ->post(route('documents.routings.store', $document), [
                 'action'   => 'appropriate_action',
-                'user_ids' => [$this->rd->id],
+                'user_ids' => [$this->sds->id],
             ])
             ->assertSessionHasErrors('user_ids');
     }
@@ -201,7 +201,7 @@ class DivisionChiefRoutingTest extends TestCase
         $document = Document::create([
             'type'        => DocumentType::Incoming,
             'title'       => 'Unacknowledged memo',
-            'uploaded_by' => $this->rd->id,
+            'uploaded_by' => $this->sds->id,
             'file_path'   => 'incoming/2026/07/unacked.pdf',
             'file_hash'   => hash('sha256', 'unacked'),
             'status'      => DocumentStatus::Routed,
@@ -209,7 +209,7 @@ class DivisionChiefRoutingTest extends TestCase
 
         $routing = DocumentRouting::create([
             'document_id' => $document->id,
-            'routed_by'   => $this->rd->id,
+            'routed_by'   => $this->sds->id,
             'is_rush'     => false,
             'routed_at'   => now(),
         ]);
@@ -306,7 +306,7 @@ class DivisionChiefRoutingTest extends TestCase
         $document = Document::create([
             'type'        => DocumentType::Incoming,
             'title'       => 'Fresh memo',
-            'uploaded_by' => $this->rd->id,
+            'uploaded_by' => $this->sds->id,
             'file_path'   => 'incoming/2026/07/fresh.pdf',
             'file_hash'   => hash('sha256', 'fresh'),
             'status'      => DocumentStatus::Received,
@@ -314,7 +314,7 @@ class DivisionChiefRoutingTest extends TestCase
 
         $routing = DocumentRouting::create([
             'document_id' => $document->id,
-            'routed_by'   => $this->rd->id,
+            'routed_by'   => $this->sds->id,
             'is_rush'     => false,
             'routed_at'   => now(),
         ]);

@@ -7,7 +7,7 @@ use App\Enums\DocumentType;
 use App\Enums\ReviewAction;
 use App\Http\Requests\ResubmitOutgoingDocumentRequest;
 use App\Http\Requests\StoreOutgoingDocumentRequest;
-use App\Models\ArdAvailabilitySetting;
+use App\Models\AsdsAvailabilitySetting;
 use App\Models\Document;
 use App\Models\DocumentReview;
 use App\Models\User;
@@ -117,14 +117,14 @@ class OutgoingDocumentController extends Controller
 
     /**
      * A division chief already sits above every originator review stage in
-     * their own division, so their own submissions skip straight to ARD
+     * their own division, so their own submissions skip straight to ASDS
      * review instead of being routed back to themselves for a lower-stage
      * review.
      *
      * A unit head's own submission only gets that same skip if they're in
-     * the Office of the Regional Director (ORD) or one of its sub-units
-     * (ICTU, LU, PAU, ORD Proper, etc.) — that's ORD's own internal
-     * structure, where the RD is effectively their next reviewer. A unit
+     * the Office of the Schools Division Superintendent (OSDS) or one of its sub-units
+     * (ICTU, LU, PAU, OSDS Proper, etc.) — that's OSDS's own internal
+     * structure, where the SDS is effectively their next reviewer. A unit
      * head anywhere else (e.g. Administrative Division) still has an actual
      * division chief above them, so their own upload goes to that chief
      * instead, same as it would for one of their own staff's submissions
@@ -132,9 +132,9 @@ class OutgoingDocumentController extends Controller
      * skips onward the same way OutgoingDocumentController::initialStatus()
      * already does for a regular originator (see nextStatusAfterUnitHead()).
      *
-     * The RD's own (ORD) secretary gets this same skip for the same reason
-     * — she sits in ORD Proper (or ORD itself) with nobody above her except
-     * ARD/RD, so a memo she drafts has no unit head or division chief to
+     * The SDS's own (OSDS) secretary gets this same skip for the same reason
+     * — she sits in OSDS Proper (or OSDS itself) with nobody above her except
+     * ASDS/SDS, so a memo she drafts has no unit head or division chief to
      * review it either.
      *
      * Public/static so the resubmission flow can reuse the exact same rule.
@@ -142,27 +142,27 @@ class OutgoingDocumentController extends Controller
     public static function initialStatus(User $user): DocumentStatus
     {
         if ($user->hasRole('division_chief')) {
-            return ArdAvailabilitySetting::nextAfterDivisionChief();
+            return AsdsAvailabilitySetting::nextAfterDivisionChief();
         }
 
-        // Staff detailed to the Regional Office from elsewhere (e.g. a
-        // School Division Office) — no unit head or division chief sits
-        // above them, so their own upload skips straight to ARD review the
-        // same way a division chief's own upload does. Unlike the OARD
+        // Staff detailed to this Schools Division Office from elsewhere (e.g. a
+        // school or another division office) — no unit head or division chief sits
+        // above them, so their own upload skips straight to ASDS review the
+        // same way a division chief's own upload does. Unlike the OASDS
         // check further below, this one deliberately DOES honor the
-        // ARD-availability toggle (nextAfterDivisionChief() falls through to
-        // RD when she's marked unavailable) rather than always forcing
-        // PendingArdReview.
+        // ASDS-availability toggle (nextAfterDivisionChief() falls through to
+        // SDS when she's marked unavailable) rather than always forcing
+        // PendingAsdsReview.
         if ($user->hasRole('detailed_staff')) {
-            return ArdAvailabilitySetting::nextAfterDivisionChief();
+            return AsdsAvailabilitySetting::nextAfterDivisionChief();
         }
 
         if ($user->hasRole('unit_head')) {
             $division = $user->division;
-            $isOrdUnitHead = $division?->code === 'ORD' || $division?->parent?->code === 'ORD';
+            $isOsdsUnitHead = $division?->code === 'OSDS' || $division?->parent?->code === 'OSDS';
 
-            if ($isOrdUnitHead) {
-                return ArdAvailabilitySetting::nextAfterDivisionChief();
+            if ($isOsdsUnitHead) {
+                return AsdsAvailabilitySetting::nextAfterDivisionChief();
             }
 
             // A unit head's chief isn't necessarily in their own division —
@@ -178,50 +178,64 @@ class OutgoingDocumentController extends Controller
                 ->whereIn('division_id', $divisionIds)
                 ->exists();
 
-            return $hasChief ? DocumentStatus::PendingDivisionChiefReview : ArdAvailabilitySetting::nextAfterDivisionChief();
+            return $hasChief ? DocumentStatus::PendingDivisionChiefReview : AsdsAvailabilitySetting::nextAfterDivisionChief();
         }
 
-        if (self::isOrdSecretary($user)) {
-            return ArdAvailabilitySetting::nextAfterDivisionChief();
+        if (self::isOsdsSecretary($user)) {
+            return AsdsAvailabilitySetting::nextAfterDivisionChief();
         }
 
-        // Staff under the Office of the Assistant Regional Director (OARD)
-        // report directly to the ARD — unlike ORD's other sub-units
-        // (ICTU/LU/PAU), OARD has no unit head of its own, and there's no
-        // division chief anywhere in the ORD tree either. Without this
+        // Staff under the Office of the Assistant Schools Division Superintendent (OASDS)
+        // report directly to the ASDS — unlike OSDS's other sub-units
+        // (ICTU/LU/PAU), OASDS has no unit head of its own, and there's no
+        // division chief anywhere in the OSDS tree either. Without this
         // check, the fallback below would find no unit head in their
         // division and leave the document at `Submitted`, which routes to a
         // division chief review that doesn't exist for them — stuck with
         // nobody able to act on it.
         //
-        // Deliberately always PendingArdReview, NOT
-        // ArdAvailabilitySetting::nextAfterDivisionChief() — that toggle
-        // exists to skip ARD as an *optional* review layer for the rest of
+        // Deliberately always PendingAsdsReview, NOT
+        // AsdsAvailabilitySetting::nextAfterDivisionChief() — that toggle
+        // exists to skip ASDS as an *optional* review layer for the rest of
         // the org's division-chief escalations when she isn't handling that
         // general queue, but she's still personally, directly responsible
-        // for her own OARD staff's documents regardless of it, the same way
+        // for her own OASDS staff's documents regardless of it, the same way
         // a division chief always reviews their own staff with no
         // equivalent "unavailable" bypass. This is intentionally scoped to
-        // OARD only — the ORD unit-head/secretary branches above are
+        // OASDS only — the OSDS unit-head/secretary branches above are
         // unaffected and still honor the toggle.
-        if ($user->division?->code === 'OARD') {
-            return DocumentStatus::PendingArdReview;
+        if ($user->division?->code === 'OASDS') {
+            return DocumentStatus::PendingAsdsReview;
         }
 
         $hasUnitHead = $user->division_id && User::whereHas('roles', fn ($q) => $q->where('name', 'unit_head'))
             ->where('division_id', $user->division_id)
             ->exists();
 
-        return $hasUnitHead ? DocumentStatus::PendingUnitHeadReview : DocumentStatus::Submitted;
+        if ($hasUnitHead) {
+            return DocumentStatus::PendingUnitHeadReview;
+        }
+
+        // `Submitted` is reviewed by a division chief in the originator's own
+        // division or its parent (DocumentPolicy::review()). With no chief
+        // there either — e.g. staff in an OSDS sub-office with no unit head,
+        // since OSDS has no division chief — nobody could ever act on it, so
+        // skip onward the same way a chief-less unit head's upload does.
+        $divisionIds = array_filter([$user->division_id, $user->division?->parent_id]);
+        $hasChief = ! empty($divisionIds) && User::whereHas('roles', fn ($q) => $q->where('name', 'division_chief'))
+            ->whereIn('division_id', $divisionIds)
+            ->exists();
+
+        return $hasChief ? DocumentStatus::Submitted : AsdsAvailabilitySetting::nextAfterDivisionChief();
     }
 
     /**
-     * The RD's own secretary — same identification as
-     * DocumentPolicy::isOrdSecretary() (kept as a separate private copy here
-     * rather than shared, matching how isOrdSecretary() is duplicated
+     * The SDS's own secretary — same identification as
+     * DocumentPolicy::isOsdsSecretary() (kept as a separate private copy here
+     * rather than shared, matching how isOsdsSecretary() is duplicated
      * per-class elsewhere in this codebase rather than shared).
      */
-    private static function isOrdSecretary(User $user): bool
+    private static function isOsdsSecretary(User $user): bool
     {
         if (! $user->hasRole('secretary') || $user->division_id === null) {
             return false;
@@ -229,6 +243,6 @@ class OutgoingDocumentController extends Controller
 
         $division = $user->division;
 
-        return $division?->code === 'ORD' || $division?->parent?->code === 'ORD';
+        return $division?->code === 'OSDS' || $division?->parent?->code === 'OSDS';
     }
 }

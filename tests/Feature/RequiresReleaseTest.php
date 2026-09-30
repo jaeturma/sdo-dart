@@ -35,12 +35,12 @@ class RequiresReleaseTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'kmt_focal'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary', 'kmt_focal'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
         $this->originator = User::factory()->create(['division_id' => $this->ad->id]);
         $this->originator->assignRole(['originator', 'kmt_focal']);

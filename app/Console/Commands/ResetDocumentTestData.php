@@ -17,17 +17,25 @@ class ResetDocumentTestData extends Command
 {
     protected $signature = 'documents:reset-test-data {--force : Skip the confirmation prompt}';
 
-    protected $description = 'Delete all documents, reviews, routings, signatures, audit logs, and notifications — keeps users/roles/divisions/credentials intact.';
+    protected $description = 'Delete all documents (with their reviews, routings, signatures, release stamps, and control-number counters), audit logs, and notifications — keeps users/roles/divisions/credentials intact.';
 
-    /** Child-to-parent order so no foreign key ever dangles, regardless of DB-level cascade rules. */
+    /**
+     * Child-to-parent order so no foreign key ever dangles, regardless of
+     * DB-level cascade rules. document_control_number_counters is included so
+     * go-live control numbers restart at 001 instead of continuing the trial
+     * period's series.
+     */
     private const TABLES = [
         'notifications',
         'signature_audit_logs',
         'document_routing_recipients',
         'document_routings',
         'document_reviews',
+        'document_signature_placements',
         'document_signatures',
+        'document_release_stamps',
         'documents',
+        'document_control_number_counters',
     ];
 
     public function handle(): int

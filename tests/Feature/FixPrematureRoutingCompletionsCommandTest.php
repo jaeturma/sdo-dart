@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 /**
  * Reproduces the exact production bug this command retroactively fixes: an
- * ORD unit head's (or division chief's) acknowledgement went straight to
+ * OSDS unit head's (or division chief's) acknowledgement went straight to
  * Completed in one step before the routing-deferral fix existed, which then
  * auto-promoted the whole document to Completed, permanently hiding
  * "Route Document" before they ever got a chance to forward it.
@@ -24,40 +24,40 @@ class FixPrematureRoutingCompletionsCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
+    private Division $osds;
 
     private Division $ictu;
 
     private Division $ad;
 
-    private User $rd;
+    private User $sds;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ictu = Division::create(['name' => 'ICT Unit', 'code' => 'ICTU', 'parent_id' => $this->ord->id, 'allow_rd_direct_routing' => true]);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->ictu = Division::create(['name' => 'ICT Unit', 'code' => 'ICTU', 'parent_id' => $this->osds->id, 'allow_sds_direct_routing' => true]);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create(['division_id' => $this->ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $this->osds->id]);
+        $this->sds->assignRole('sds');
     }
 
     private function makeStuckDocument(User $recipientUser, string $title = 'Stuck memo'): Document
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => $title, 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => $title, 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/'.str($title)->slug().'.pdf', 'file_hash' => hash('sha256', $title),
             'status' => DocumentStatus::Completed,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now()->subDay(),
         ]);
 
@@ -72,7 +72,7 @@ class FixPrematureRoutingCompletionsCommandTest extends TestCase
         return $document;
     }
 
-    public function test_dry_run_reports_stuck_ord_unit_head_document_without_changing_anything(): void
+    public function test_dry_run_reports_stuck_osds_unit_head_document_without_changing_anything(): void
     {
         $unitHead = User::factory()->create(['division_id' => $this->ictu->id]);
         $unitHead->assignRole('unit_head');
@@ -86,7 +86,7 @@ class FixPrematureRoutingCompletionsCommandTest extends TestCase
         $this->assertSame(DocumentStatus::Completed, $document->status);
     }
 
-    public function test_apply_reverts_stuck_ord_unit_head_document_to_routed(): void
+    public function test_apply_reverts_stuck_osds_unit_head_document_to_routed(): void
     {
         $unitHead = User::factory()->create(['division_id' => $this->ictu->id]);
         $unitHead->assignRole('unit_head');
@@ -143,12 +143,12 @@ class FixPrematureRoutingCompletionsCommandTest extends TestCase
         $chief->assignRole('division_chief');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Legit chief completion', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Legit chief completion', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/legit.pdf', 'file_hash' => hash('sha256', 'legit'),
             'status' => DocumentStatus::Completed,
         ]);
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now()->subDays(2),
         ]);
         DocumentRoutingRecipient::create([

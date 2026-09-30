@@ -25,7 +25,7 @@ class DocumentReleaseStampController extends Controller
     /**
      * Show the interactive release-stamp placement page.
      * Records Section places their own PNPKI-backed release stamp on the
-     * already RD-signed PDF.
+     * already SDS-signed PDF.
      */
     public function create(Request $request, Document $document): Response|RedirectResponse
     {
@@ -55,7 +55,7 @@ class DocumentReleaseStampController extends Controller
     }
 
     /**
-     * Process the release: verify P12 password, stamp the RD-signed PDF,
+     * Process the release: verify P12 password, stamp the SDS-signed PDF,
      * record the stamp, transition the document to Released.
      */
     public function store(StoreReleaseStampRequest $request, Document $document): RedirectResponse
@@ -135,7 +135,7 @@ class DocumentReleaseStampController extends Controller
      * out by email — a lightweight follow-up step, not a full re-processing
      * of the file. Recorded as a review-history entry so the originating
      * office can see it, and notifies the uploader and their supervisor
-     * (division chief, or unit head for an ORD sub-unit) that it's been sent.
+     * (division chief, or unit head for an OSDS sub-unit) that it's been sent.
      */
     public function markEmailed(Request $request, Document $document): RedirectResponse
     {

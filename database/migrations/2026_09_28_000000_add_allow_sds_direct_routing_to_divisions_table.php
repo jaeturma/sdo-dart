@@ -11,28 +11,28 @@ return new class extends Migration
     {
         Schema::table('divisions', function (Blueprint $table) {
             // Lets an admin mark a specific sub-unit (e.g. ICTU, Legal Unit,
-            // PAU, or a newly-added one like NEAP under HRDD) as one the RD
-            // (and her ORD secretary) may route incoming documents directly
+            // PAU, or a newly-added one like NEAP under HRDD) as one the SDS
+            // (and her OSDS secretary) may route incoming documents directly
             // to the unit head of — replaces a previous hardcoded rule tied
             // to a specific parent division code.
-            $table->boolean('allow_rd_direct_routing')->default(false)->after('parent_id');
+            $table->boolean('allow_sds_direct_routing')->default(false)->after('parent_id');
         });
 
         // Preserve today's live behavior for the divisions that currently
-        // get this ability implicitly via the old "parent is coded ORD"
+        // get this ability implicitly via the old "parent is coded OSDS"
         // rule (Legal Unit, Public Affairs Unit, ICT Unit) — scoped tightly
         // by parent code so this can never touch any other row.
-        $ordId = Division::where('code', 'ORD')->value('id');
+        $osdsId = Division::where('code', 'OSDS')->value('id');
 
-        if ($ordId !== null) {
-            Division::where('parent_id', $ordId)->update(['allow_rd_direct_routing' => true]);
+        if ($osdsId !== null) {
+            Division::where('parent_id', $osdsId)->update(['allow_sds_direct_routing' => true]);
         }
     }
 
     public function down(): void
     {
         Schema::table('divisions', function (Blueprint $table) {
-            $table->dropColumn('allow_rd_direct_routing');
+            $table->dropColumn('allow_sds_direct_routing');
         });
     }
 };

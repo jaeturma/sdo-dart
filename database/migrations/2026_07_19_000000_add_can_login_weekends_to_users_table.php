@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             // Per-user override for RestrictWeekendAccess — disabled by
-            // default; RD/admin already bypass the restriction via role
+            // default; SDS/admin already bypass the restriction via role
             // regardless of this flag (see the middleware).
             $table->boolean('can_login_weekends')->default(false)->after('is_active');
         });

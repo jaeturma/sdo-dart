@@ -31,7 +31,8 @@ class StoreDivisionRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:20', Rule::unique('divisions', 'code')],
             'parent_id' => ['nullable', 'integer', 'exists:divisions,id'],
-            'allow_rd_direct_routing' => ['sometimes', 'boolean'],
+            'allow_sds_direct_routing' => ['sometimes', 'boolean'],
+            'is_records_section' => ['sometimes', 'boolean'],
         ];
     }
 }

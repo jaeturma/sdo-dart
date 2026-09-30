@@ -26,13 +26,13 @@ class DocumentSignatureController extends Controller
 {
     /**
      * Show the interactive signing page.
-     * The secretary places the RD's e-sig on a PDF preview and enters the RD's P12 password.
+     * The secretary places the SDS's e-sig on a PDF preview and enters the SDS's P12 password.
      */
     public function create(Request $request, Document $document): Response
     {
         $this->authorize('sign', $document);
 
-        $credential = UserSigningCredential::forRegionalDirector();
+        $credential = UserSigningCredential::forSds();
 
         $esigUrl = $credential->esig_path
             ? route('documents.sign.esig', $document)
@@ -58,10 +58,10 @@ class DocumentSignatureController extends Controller
     public function store(SignDocumentRequest $request, Document $document): RedirectResponse
     {
         $user = $request->user();
-        $credential = UserSigningCredential::forRegionalDirector();
+        $credential = UserSigningCredential::forSds();
 
         if (! $credential) {
-            return back()->withErrors(['p12_password' => 'No signing credential found for the RD.']);
+            return back()->withErrors(['p12_password' => 'No signing credential found for the SDS.']);
         }
 
         $signer = new DocumentSigner;
@@ -123,8 +123,8 @@ class DocumentSignatureController extends Controller
             }
 
             // Record the review action — this is always the secretary attaching
-            // the RD's own signature (DocumentPolicy::sign() requires the
-            // secretary role), the RD's own approval was already recorded
+            // the SDS's own signature (DocumentPolicy::sign() requires the
+            // secretary role), the SDS's own approval was already recorded
             // as a separate review row, so attribute this one accurately.
             DocumentReview::create([
                 'document_id' => $document->id,
@@ -187,13 +187,13 @@ class DocumentSignatureController extends Controller
     }
 
     /**
-     * Stream the RD's e-signature image for preview on the signing page.
+     * Stream the SDS's e-signature image for preview on the signing page.
      */
     public function esig(Request $request, Document $document): StreamedResponse
     {
         $this->authorize('sign', $document);
 
-        $credential = UserSigningCredential::forRegionalDirector();
+        $credential = UserSigningCredential::forSds();
 
         abort_if(! $credential || ! $credential->esig_path, 404);
 

@@ -43,7 +43,7 @@ class NormalizeLegacyPdfsCommandTest extends TestCase
             'type' => DocumentType::Outgoing, 'title' => 'Normal doc',
             'uploaded_by' => $user->id, 'file_path' => $path,
             'file_hash' => hash_file('sha256', Storage::disk('documents')->path($path)),
-            'status' => DocumentStatus::PendingRdReview,
+            'status' => DocumentStatus::PendingSdsReview,
         ]);
 
         $this->artisan('documents:normalize-legacy-pdfs')
@@ -84,7 +84,7 @@ class NormalizeLegacyPdfsCommandTest extends TestCase
         Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Ghost doc',
             'uploaded_by' => $user->id, 'file_path' => 'outgoing/2026/07/does-not-exist.pdf',
-            'file_hash' => hash('sha256', 'x'), 'status' => DocumentStatus::PendingRdReview,
+            'file_hash' => hash('sha256', 'x'), 'status' => DocumentStatus::PendingSdsReview,
         ]);
 
         $this->artisan('documents:normalize-legacy-pdfs')
@@ -105,7 +105,7 @@ class NormalizeLegacyPdfsCommandTest extends TestCase
             'type' => DocumentType::Outgoing, 'title' => 'Normal doc',
             'uploaded_by' => $user->id, 'file_path' => $path,
             'file_hash' => $originalHash,
-            'status' => DocumentStatus::PendingRdReview,
+            'status' => DocumentStatus::PendingSdsReview,
         ]);
 
         $this->artisan('documents:normalize-legacy-pdfs')->assertExitCode(0);

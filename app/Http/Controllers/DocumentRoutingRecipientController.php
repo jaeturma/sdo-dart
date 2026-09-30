@@ -24,7 +24,7 @@ class DocumentRoutingRecipientController extends Controller
         $now = now();
 
         // A division chief (or a unit head whose division is flagged
-        // allow_rd_direct_routing — e.g. ICTU/LU/PAU, who the RD routes to
+        // allow_sds_direct_routing — e.g. ICTU/LU/PAU, who the SDS routes to
         // directly the same way she routes to chiefs) who acknowledges an
         // incoming document may still need to route it onward to their own
         // staff — auto-completing here would flip the whole document to
@@ -66,10 +66,10 @@ class DocumentRoutingRecipientController extends Controller
 
     /**
      * A unit head whose division has been admin-flagged
-     * allow_rd_direct_routing (e.g. ICTU/LU/PAU, or any other unit opted in
+     * allow_sds_direct_routing (e.g. ICTU/LU/PAU, or any other unit opted in
      * via Office Management) — same identification as
      * DocumentPolicy::isDirectRoutableUnitHead() (kept as a separate private
-     * copy here rather than shared, matching how isOrdSecretary() is
+     * copy here rather than shared, matching how isOsdsSecretary() is
      * duplicated per-class elsewhere in this codebase rather than shared).
      */
     private function isDirectRoutableUnitHead(User $user): bool
@@ -78,7 +78,7 @@ class DocumentRoutingRecipientController extends Controller
             return false;
         }
 
-        return (bool) $user->division?->allow_rd_direct_routing;
+        return (bool) $user->division?->allow_sds_direct_routing;
     }
 
     /**
@@ -158,7 +158,7 @@ class DocumentRoutingRecipientController extends Controller
                     ]);
             }
 
-            // The RD/secretary's unconditional cancel means this recipient
+            // The SDS/secretary's unconditional cancel means this recipient
             // may have already been Completed — which, if it was the
             // document's last outstanding recipient, would have already
             // promoted the whole document to Completed. Cancelling implies
@@ -184,7 +184,7 @@ class DocumentRoutingRecipientController extends Controller
         // courtesy copy — Records Section acknowledging "we've seen it" is
         // not the same as the document's actual dispatch-and-action workflow
         // being done. Promoting to Completed based on that alone would flip
-        // the document's status before the RD/her secretary ever routes it
+        // the document's status before the SDS/her secretary ever routes it
         // to a division chief, and DocumentPolicy::route()'s status guard
         // would then hide the "Route Document" option entirely — nobody
         // could route it to chiefs anymore. So don't even consider promoting

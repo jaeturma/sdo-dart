@@ -27,10 +27,10 @@ class IncomingDocumentLogTest extends TestCase
 
     private Division $records;
     private Division $ad;
-    private Division $ord;
+    private Division $osds;
     private User $recordsClerk;
     private User $admin;
-    private User $rd;
+    private User $sds;
 
     protected function setUp(): void
     {
@@ -38,13 +38,13 @@ class IncomingDocumentLogTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'division_chief', 'rd', 'ard', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'division_chief', 'sds', 'asds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
         $this->recordsClerk = User::factory()->create(['division_id' => $this->records->id]);
         $this->recordsClerk->assignRole('originator');
@@ -52,8 +52,8 @@ class IncomingDocumentLogTest extends TestCase
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
 
-        $this->rd = User::factory()->create(['division_id' => $this->ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $this->osds->id]);
+        $this->sds->assignRole('sds');
     }
 
     private function incomingDocument(string $title, User $uploader, string $createdAt): Document
@@ -86,15 +86,15 @@ class IncomingDocumentLogTest extends TestCase
 
     public function test_log_includes_documents_uploaded_by_anyone_not_just_records_section(): void
     {
-        // Uploaded by the RD, not Records Section — normal incomingScope()
+        // Uploaded by the SDS, not Records Section — normal incomingScope()
         // visibility for a records clerk wouldn't include this at all.
-        $this->incomingDocument('RD uploaded memo', $this->rd, '2026-08-11 08:00:00');
+        $this->incomingDocument('SDS uploaded memo', $this->sds, '2026-08-11 08:00:00');
 
         $this->actingAs($this->recordsClerk)
             ->get(route('documents.incoming-log', ['date' => '2026-08-11']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents',
-                fn ($docs) => collect($docs)->pluck('title')->contains('RD uploaded memo'),
+                fn ($docs) => collect($docs)->pluck('title')->contains('SDS uploaded memo'),
             ));
     }
 
@@ -114,7 +114,7 @@ class IncomingDocumentLogTest extends TestCase
 
     public function test_non_records_non_admin_user_is_forbidden(): void
     {
-        foreach (['rd', 'ard', 'secretary'] as $role) {
+        foreach (['sds', 'asds', 'secretary'] as $role) {
             $user = User::factory()->create();
             $user->assignRole($role);
 
@@ -128,7 +128,7 @@ class IncomingDocumentLogTest extends TestCase
     {
         Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Outgoing memo',
-            'uploaded_by' => $this->rd->id, 'division_id' => $this->ord->id,
+            'uploaded_by' => $this->sds->id, 'division_id' => $this->osds->id,
             'file_path' => 'outgoing/a.pdf', 'file_hash' => hash('sha256', 'out'),
             'status' => DocumentStatus::Draft,
         ]);

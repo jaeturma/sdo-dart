@@ -21,11 +21,11 @@ class RecordsSectionViewTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ordp;
+    private Division $osdsp;
     private Division $records;
     private Division $ad;
     private User $secretary;
-    private User $rd;
+    private User $sds;
     private User $admin;
     private User $recordsClerk;
     private User $outsider;
@@ -36,20 +36,20 @@ class RecordsSectionViewTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'division_chief', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'division_chief', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $ord->id]);
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $osds->id]);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
-        $this->secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $this->secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $this->secretary->assignRole('secretary');
 
-        $this->rd = User::factory()->create(['division_id' => $ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $osds->id]);
+        $this->sds->assignRole('sds');
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin');
@@ -71,15 +71,15 @@ class RecordsSectionViewTest extends TestCase
         ]);
         $autoForwarded = Document::firstWhere('title', 'Auto-forwarded memo');
 
-        // A document manually routed to Records Section by the RD — NOT
+        // A document manually routed to Records Section by the SDS — NOT
         // auto-forwarded, must not appear in this dedicated view.
         $manuallyRouted = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Manually routed memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Manually routed memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/manual.pdf', 'file_hash' => hash('sha256', 'manual'),
             'status' => DocumentStatus::Routed,
         ]);
         $routing = DocumentRouting::create([
-            'document_id' => $manuallyRouted->id, 'routed_by' => $this->rd->id,
+            'document_id' => $manuallyRouted->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(), 'remarks' => 'Please file.',
         ]);
         DocumentRoutingRecipient::create([

@@ -29,18 +29,17 @@ class RoleAndDivisionSeeder extends Seeder
         // RoutingCandidateResolver), but cannot issue routings themselves
         // and cannot upload incoming documents — see
         // DocumentPolicy::createOutgoing()/route().
-        $roles = ['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'kmt_focal', 'detailed_staff'];
+        $roles = ['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary', 'kmt_focal', 'detailed_staff'];
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         // Top-level divisions. Only these three are seeded — this Schools
         // Division Office's admin adds any sub-units afterward via Office
-        // Management. OSDS keeps the literal code 'ORD' (an internal
-        // identifier several behaviors key off — see DivisionSeeder.php's
-        // comment for why), not a renamed one.
+        // Management. Several behaviors key off the exact code 'OSDS' — see
+        // DivisionSeeder.php's comment.
         $topLevel = [
-            ['code' => 'ORD',  'name' => 'Office of the Schools Division Superintendent'],
+            ['code' => 'OSDS',  'name' => 'Office of the Schools Division Superintendent'],
             ['code' => 'CID',  'name' => 'Curriculum Implementation Division'],
             ['code' => 'SGOD', 'name' => 'School Governance and Operations Division'],
         ];

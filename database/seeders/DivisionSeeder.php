@@ -28,21 +28,17 @@ class DivisionSeeder extends Seeder
         }
 
         // Top-level divisions. Only these three are seeded — this Schools
-        // Division Office's admin adds any sub-units (e.g. an "OSDS Proper"
-        // or Records Section equivalent) afterward via the Office
-        // Management screen (DivisionController/Divisions/Form.vue), the
-        // same dynamic mechanism already used for allow_rd_direct_routing.
+        // Division Office's admin adds any sub-units (e.g. Records Section,
+        // Legal Unit, ICT Unit) afterward via the Office Management screen
+        // (DivisionController/Divisions/Form.vue), and designates which one
+        // is the Records Section there.
         //
-        // OSDS keeps the literal code 'ORD' rather than a renamed one —
-        // several behaviors (the secretary's "acts on the SDS's behalf"
-        // powers, an ORD-sub-unit head's review-skip, etc.) key off this
-        // exact string across ~10 call sites (see isOrdSecretary() and its
-        // duplicates). Renaming the code itself would mean updating every
-        // one of those call sites for what's ultimately a cosmetic detail —
-        // the code is an internal identifier, not a user-facing label (the
-        // name field is what's actually shown to staff).
+        // Several behaviors (the secretary's "acts on the SDS's behalf"
+        // powers, an OSDS-sub-unit head's review-skip, etc.) key off the
+        // exact code 'OSDS' (see isOsdsSecretary() and its duplicates), so
+        // Office Management refuses to change it — see Division::isOsds().
         $topLevel = [
-            ['name' => 'Office of the Schools Division Superintendent', 'code' => 'ORD'],
+            ['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS'],
             ['name' => 'Curriculum Implementation Division', 'code' => 'CID'],
             ['name' => 'School Governance and Operations Division', 'code' => 'SGOD'],
         ];

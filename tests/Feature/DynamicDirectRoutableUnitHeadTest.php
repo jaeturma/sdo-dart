@@ -16,11 +16,11 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Proves the "RD routes directly to a unit head" ability (see
- * OrdUnitHeadRoutingTest, which covers it via the ICTU example) is actually
- * driven by Division::allow_rd_direct_routing — an admin-configurable flag,
- * not a hardcoded ORD-parent check — using the RD's own real-world example:
- * NEAP, a unit under HRDD (a division with no relation to ORD at all).
+ * Proves the "SDS routes directly to a unit head" ability (see
+ * OsdsUnitHeadRoutingTest, which covers it via the ICTU example) is actually
+ * driven by Division::allow_sds_direct_routing — an admin-configurable flag,
+ * not a hardcoded OSDS-parent check — using the SDS's own real-world example:
+ * NEAP, a unit under HRDD (a division with no relation to OSDS at all).
  */
 class DynamicDirectRoutableUnitHeadTest extends TestCase
 {
@@ -30,7 +30,7 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
 
     private Division $neap;
 
-    private User $rd;
+    private User $sds;
 
     private User $hrddChief;
 
@@ -42,7 +42,7 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -50,11 +50,11 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
         $this->neap = Division::create([
             'name' => 'NEAP',
             'parent_id' => $this->hrdd->id,
-            'allow_rd_direct_routing' => true,
+            'allow_sds_direct_routing' => true,
         ]);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->hrddChief = User::factory()->create(['division_id' => $this->hrdd->id]);
         $this->hrddChief->assignRole('division_chief');
@@ -66,13 +66,13 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
     private function routeDocumentToNeapHead(): Document
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/memo.pdf', 'file_hash' => hash('sha256', 'memo'),
             'status' => DocumentStatus::Received,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(),
         ]);
 
@@ -86,15 +86,15 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
         return $document;
     }
 
-    public function test_rd_routing_form_offers_the_neap_head_when_the_flag_is_enabled(): void
+    public function test_sds_routing_form_offers_the_neap_head_when_the_flag_is_enabled(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Fresh memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Fresh memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/fresh.pdf', 'file_hash' => hash('sha256', 'fresh'),
             'status' => DocumentStatus::Received,
         ]);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertInertia(fn ($page) => $page
                 ->where('users', fn ($users) => collect($users)->pluck('id')->contains($this->neapHead->id)));
@@ -147,19 +147,19 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
         $unflaggedHead->assignRole('unit_head');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Unflagged memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Unflagged memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/unflagged.pdf', 'file_hash' => hash('sha256', 'unflagged'),
             'status' => DocumentStatus::Received,
         ]);
 
-        // Not offered as a direct RD routing candidate in the first place.
-        $this->actingAs($this->rd)
+        // Not offered as a direct SDS routing candidate in the first place.
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertInertia(fn ($page) => $page
                 ->where('users', fn ($users) => ! collect($users)->pluck('id')->contains($unflaggedHead->id)));
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(),
         ]);
 
@@ -184,13 +184,13 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
     public function test_hrdd_chief_can_also_route_to_the_neap_head(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Chief-routed memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Chief-routed memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/chief.pdf', 'file_hash' => hash('sha256', 'chief'),
             'status' => DocumentStatus::Received,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(),
         ]);
 
@@ -223,15 +223,15 @@ class DynamicDirectRoutableUnitHeadTest extends TestCase
 
     public function test_disabling_the_flag_removes_the_rds_direct_routing_ability(): void
     {
-        $this->neap->update(['allow_rd_direct_routing' => false]);
+        $this->neap->update(['allow_sds_direct_routing' => false]);
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'After toggle-off memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'After toggle-off memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/toggled-off.pdf', 'file_hash' => hash('sha256', 'toggled-off'),
             'status' => DocumentStatus::Received,
         ]);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertInertia(fn ($page) => $page
                 ->where('users', fn ($users) => ! collect($users)->pluck('id')->contains($this->neapHead->id)));

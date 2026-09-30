@@ -57,8 +57,8 @@ class RouteDocumentRequest extends FormRequest
      * where a tampered request could submit an id outside the set of
      * candidates the requesting user is actually allowed to route to — this
      * used to only run for the narrow division-chief/unit-head case,
-     * leaving the RD/ARD/secretary's broader candidate pool (ARD, chiefs,
-     * ORD unit heads) completely unchecked server-side. Runs for every role
+     * leaving the SDS/ASDS/secretary's broader candidate pool (ASDS, chiefs,
+     * OSDS unit heads) completely unchecked server-side. Runs for every role
      * now, via RoutingCandidateResolver — the same source of truth
      * DocumentRoutingController::candidateUsers() uses to populate the UI
      * candidate list, so the two can never drift apart.

@@ -29,7 +29,7 @@ class NotificationDispatchTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'kmt_focal'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary', 'kmt_focal'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
     }
@@ -70,22 +70,22 @@ class NotificationDispatchTest extends TestCase
         Notification::assertSentTo($chief, DocumentEvent::class);
     }
 
-    public function test_chief_or_unit_head_own_submission_notifies_ard(): void
+    public function test_chief_or_unit_head_own_submission_notifies_asds(): void
     {
         Notification::fake();
 
         $division = Division::create(['name' => 'Finance Division', 'code' => 'FD']);
         $chief = User::factory()->create(['division_id' => $division->id]);
         $chief->assignRole('division_chief');
-        $ard = User::factory()->create();
-        $ard->assignRole('ard');
+        $asds = User::factory()->create();
+        $asds->assignRole('asds');
 
         $this->actingAs($chief)->post('/documents/outgoing', [
             'title' => 'Memo', 'file' => UploadedFile::fake()->createWithContent('memo.pdf', '%PDF-1.4 fake pdf content for tests'),
             'requires_release' => true,
         ])->assertRedirect();
 
-        Notification::assertSentTo($ard, DocumentEvent::class);
+        Notification::assertSentTo($asds, DocumentEvent::class);
     }
 
     public function test_approved_forwarded_notifies_the_next_reviewer(): void
@@ -93,14 +93,14 @@ class NotificationDispatchTest extends TestCase
         Notification::fake();
 
         // Top-level division (no parent) so nextStatusAfterUnitHead() skips
-        // straight to ARD once the unit head approves.
+        // straight to ASDS once the unit head approves.
         $division = Division::create(['name' => 'Curriculum and Learning Management Division', 'code' => 'CLMD']);
         $unitHead = User::factory()->create(['division_id' => $division->id]);
         $unitHead->assignRole('unit_head');
         $originator = User::factory()->create(['division_id' => $division->id]);
         $originator->assignRole('originator');
-        $ard = User::factory()->create();
-        $ard->assignRole('ard');
+        $asds = User::factory()->create();
+        $asds->assignRole('asds');
 
         $document = Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Memo', 'uploaded_by' => $originator->id,
@@ -113,28 +113,28 @@ class NotificationDispatchTest extends TestCase
             ->assertRedirect();
 
         $document->refresh();
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
-        Notification::assertSentTo($ard, DocumentEvent::class);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
+        Notification::assertSentTo($asds, DocumentEvent::class);
     }
 
-    public function test_final_rd_approval_notifies_secretary_and_uploader(): void
+    public function test_final_sds_approval_notifies_secretary_and_uploader(): void
     {
         Notification::fake();
 
         $originator = User::factory()->create();
         $originator->assignRole('originator');
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
         $secretary = User::factory()->create();
         $secretary->assignRole('secretary');
 
         $document = Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Memo', 'uploaded_by' => $originator->id,
             'file_path' => 'outgoing/a.pdf', 'file_hash' => hash('sha256', 'a'),
-            'status' => DocumentStatus::PendingRdReview,
+            'status' => DocumentStatus::PendingSdsReview,
         ]);
 
-        $this->actingAs($rd)
+        $this->actingAs($sds)
             ->post(route('documents.reviews.store', $document), ['action' => 'approved_forwarded'])
             ->assertRedirect();
 
@@ -150,17 +150,17 @@ class NotificationDispatchTest extends TestCase
 
         $originator = User::factory()->create();
         $originator->assignRole('originator');
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
 
         foreach (['for_comment', 'returned_for_revision', 'rejected'] as $action) {
             $document = Document::create([
                 'type' => DocumentType::Outgoing, 'title' => "Memo {$action}", 'uploaded_by' => $originator->id,
                 'file_path' => 'outgoing/a.pdf', 'file_hash' => hash('sha256', $action),
-                'status' => DocumentStatus::PendingRdReview,
+                'status' => DocumentStatus::PendingSdsReview,
             ]);
 
-            $this->actingAs($rd)
+            $this->actingAs($sds)
                 ->post(route('documents.reviews.store', $document), ['action' => $action, 'remarks' => 'Please fix.'])
                 ->assertRedirect();
         }
@@ -219,17 +219,17 @@ class NotificationDispatchTest extends TestCase
     {
         Notification::fake();
 
-        $division = Division::create(['name' => 'Records Section', 'code' => 'RS']);
+        $division = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true]);
         $clerkA = User::factory()->create(['division_id' => $division->id]);
         $clerkA->assignRole('originator');
         $clerkB = User::factory()->create(['division_id' => $division->id]);
         $clerkB->assignRole('originator');
 
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $ord->id]);
-        $secretary = User::factory()->create(['division_id' => $ordp->id]);
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $osds->id]);
+        $secretary = User::factory()->create(['division_id' => $osdsp->id]);
         $secretary->assignRole('secretary');
 
         $this->actingAs($secretary)->post('/documents/incoming', [
@@ -242,11 +242,11 @@ class NotificationDispatchTest extends TestCase
         Notification::assertSentTo($clerkA, DocumentEvent::class);
         Notification::assertSentTo($clerkB, DocumentEvent::class);
 
-        // The RD is deliberately not a routing recipient for these
+        // The SDS is deliberately not a routing recipient for these
         // auto-forwarded uploads (she acts on them directly rather than
         // acknowledging an assignment), so she needs her own notification —
         // documentRouted() alone would never reach her.
-        Notification::assertSentTo($rd, DocumentEvent::class);
+        Notification::assertSentTo($sds, DocumentEvent::class);
     }
 
     public function test_document_completed_notifies_every_distinct_router_across_multiple_rounds(): void
@@ -254,21 +254,21 @@ class NotificationDispatchTest extends TestCase
         Notification::fake();
 
         $division = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
         $chief = User::factory()->create(['division_id' => $division->id]);
         $chief->assignRole('division_chief');
         $staff = User::factory()->create(['division_id' => $division->id]);
         $staff->assignRole('originator');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Memo', 'uploaded_by' => $rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Memo', 'uploaded_by' => $sds->id,
             'file_path' => 'incoming/a.pdf', 'file_hash' => hash('sha256', 'a'),
             'status' => DocumentStatus::Routed,
         ]);
 
         $round1 = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $rd->id, 'is_rush' => false, 'routed_at' => now(),
+            'document_id' => $document->id, 'routed_by' => $sds->id, 'is_rush' => false, 'routed_at' => now(),
         ]);
         DocumentRoutingRecipient::create([
             'routing_id' => $round1->id, 'user_id' => $chief->id, 'action' => 'appropriate_action',
@@ -290,7 +290,7 @@ class NotificationDispatchTest extends TestCase
         $document->refresh();
         $this->assertSame(DocumentStatus::Completed, $document->status);
 
-        Notification::assertSentTo($rd, DocumentEvent::class);
+        Notification::assertSentTo($sds, DocumentEvent::class);
         Notification::assertSentTo($chief, DocumentEvent::class);
     }
 
@@ -298,7 +298,7 @@ class NotificationDispatchTest extends TestCase
     {
         Notification::fake();
 
-        // No one holds the ard role at all.
+        // No one holds the asds role at all.
         $division = Division::create(['name' => 'Finance Division', 'code' => 'FD']);
         $chief = User::factory()->create(['division_id' => $division->id]);
         $chief->assignRole('division_chief');
@@ -316,7 +316,7 @@ class NotificationDispatchTest extends TestCase
             ->assertRedirect();
 
         $document->refresh();
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
         // No assertion needed beyond "the request succeeded" — dispatch to an
         // empty recipient set must be a silent no-op.
     }

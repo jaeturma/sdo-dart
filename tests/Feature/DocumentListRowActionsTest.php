@@ -21,7 +21,7 @@ class DocumentListRowActionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
+    private User $sds;
     private User $originator;
 
     protected function setUp(): void
@@ -30,26 +30,26 @@ class DocumentListRowActionsTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'rd'] as $role) {
+        foreach (['originator', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->originator = User::factory()->create();
         $this->originator->assignRole('originator');
     }
 
-    public function test_rd_row_flags_can_review_true_for_document_awaiting_rd_approval(): void
+    public function test_sds_row_flags_can_review_true_for_document_awaiting_sds_approval(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Outgoing, 'title' => 'Needs RD approval',
+            'type' => DocumentType::Outgoing, 'title' => 'Needs SDS approval',
             'uploaded_by' => $this->originator->id, 'file_path' => 'outgoing/a.pdf',
-            'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingRdReview,
+            'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingSdsReview,
         ]);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_approval']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',
@@ -58,7 +58,7 @@ class DocumentListRowActionsTest extends TestCase
             ));
     }
 
-    public function test_rd_row_flags_can_route_true_for_document_awaiting_dispatch(): void
+    public function test_sds_row_flags_can_route_true_for_document_awaiting_dispatch(): void
     {
         $document = Document::create([
             'type' => DocumentType::Incoming, 'title' => 'Needs routing',
@@ -66,7 +66,7 @@ class DocumentListRowActionsTest extends TestCase
             'file_hash' => hash('sha256', 'b'), 'status' => DocumentStatus::Received,
         ]);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'for_routing']))
             ->assertInertia(fn ($page) => $page->where(
                 'documents.data',

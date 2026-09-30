@@ -18,10 +18,10 @@ const today = new Date().toLocaleDateString('en-PH', {
         <!-- Logos -->
         <div class="mb-8 flex items-center gap-4">
             <div class="rounded-full bg-white p-2">
-                <img src="/images/deped-logo.png" alt="DepEd" class="h-14 w-14 object-contain" />
+                <img src="/images/office-seal.png" alt="Schools Division Office Seal" class="h-14 w-14 object-contain" />
             </div>
             <div class="rounded-full bg-white p-2">
-                <img src="/images/region-xi-logo.png" alt="Region XI" class="h-14 w-14 object-contain" />
+                <img src="/images/dart-logo.png" alt="DepEd DART" class="h-14 w-14 object-contain" />
             </div>
         </div>
 

@@ -34,7 +34,7 @@ class UndoSignatureTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -70,11 +70,11 @@ class UndoSignatureTest extends TestCase
     {
         $document = $this->signedDocument();
 
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
         \App\Models\UserSigningCredential::create([
-            'user_id'  => $rd->id,
-            'p12_path' => "p12/{$rd->id}/test.p12",
+            'user_id'  => $sds->id,
+            'p12_path' => "p12/{$sds->id}/test.p12",
             'p12_hash' => hash('sha256', 'p12'),
         ]);
 

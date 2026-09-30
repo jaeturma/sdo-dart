@@ -9,20 +9,20 @@ use Illuminate\Support\Facades\Storage;
 class DocumentSigner
 {
     /**
-     * Sign the document PDF using the RD's P12 certificate, stamping the
-     * RD's e-signature image at one or more places across the document.
+     * Sign the document PDF using the SDS's P12 certificate, stamping the
+     * SDS's e-signature image at one or more places across the document.
      *
      * Each placement becomes its own independent, incremental-update PDF
      * signature (via PyhankoPdfSigner) rather than one signature with
      * cosmetic echoes — this also means a signature already embedded in
      * the uploaded PDF (e.g. an originator's own PNPKI signature applied
-     * externally before upload) survives intact alongside the RD's own,
+     * externally before upload) survives intact alongside the SDS's own,
      * instead of being silently discarded the way FPDI's page-import
      * mechanism used to (it never read a source PDF's /AcroForm at all).
      *
      * @param  Document  $document  The document to sign
-     * @param  UserSigningCredential  $credential  The RD's stored credential (P12 + optional esig)
-     * @param  string  $password  P12 password entered by the RD at signing time
+     * @param  UserSigningCredential  $credential  The SDS's stored credential (P12 + optional esig)
+     * @param  string  $password  P12 password entered by the SDS at signing time
      * @param  array<int, array{page: int, x_percent: float, y_percent: float, width_percent: float}>  $placements
      *                                                                                                              One or more signature placements, in the order the secretary added them.
      * @param  bool  $includeDetails  Whether to also print "Digitally signed by {name} / Date: {timestamp}"

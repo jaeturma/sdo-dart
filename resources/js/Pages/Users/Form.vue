@@ -7,6 +7,7 @@ const props = defineProps({
     user:      Object,  // null = create mode
     divisions: Array,   // flat ordered list with depth
     roles:     Object,  // { role_key: 'Label' }
+    allOriginatorsCanUpload: Boolean,
 });
 
 const isEdit = computed(() => props.user !== null);
@@ -105,6 +106,7 @@ const submit = () => {
                                     <span>
                                         <span class="block font-medium text-gray-900">KMT Focal</span>
                                         <span class="block text-gray-500">Additional role, on top of the one above. A plain Staff / Originator cannot create outgoing documents — this grants that ability, subject to the usual unit head / division chief review.</span>
+                                        <span v-if="allOriginatorsCanUpload" class="mt-1 block font-medium text-amber-700">Currently not required — an admin has allowed all Staff / Originators to create outgoing documents (Users page).</span>
                                     </span>
                                 </label>
                                 <p v-if="form.errors.kmt_focal" class="mt-1 text-sm text-red-600">{{ form.errors.kmt_focal }}</p>

@@ -4,8 +4,9 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 
 const props = defineProps({
-    divisions: Array,
-    search:    String,
+    divisions:                Array,
+    search:                   String,
+    recordsSectionConfigured: Boolean,
 });
 
 const deleteDivision = (id, name, canDelete) => {
@@ -49,6 +50,17 @@ const clearSearch = () => { search.value = ''; };
 
         <div class="py-8">
             <div class="mx-auto max-w-6xl sm:px-6 lg:px-8 space-y-4">
+
+                <!-- ── Records Section not designated ────────────────────────── -->
+                <div v-if="! recordsSectionConfigured" class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    </svg>
+                    <div class="text-sm">
+                        <p class="font-semibold text-amber-800">No office is designated as the Records Section yet</p>
+                        <p class="mt-1 text-amber-700">Until one is, signed documents can't be released, the Incoming Documents Log is unavailable, and the SDS secretary's incoming uploads can't be forwarded for filing. Create or edit the Records Section office and tick "This Office Is the Records Section".</p>
+                    </div>
+                </div>
 
                 <!-- ── Search ────────────────────────────────────────────────── -->
                 <div class="relative">
@@ -94,7 +106,13 @@ const clearSearch = () => { search.value = ''; };
                                 </td>
                             </tr>
                             <tr v-for="d in divisions" :key="d.id" class="hover:bg-gray-50">
-                                <td class="px-6 py-4 font-medium text-gray-900">{{ d.name }}</td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    {{ d.name }}
+                                    <span
+                                        v-if="d.isRecordsSection"
+                                        class="ms-1 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+                                    >Records Section</span>
+                                </td>
                                 <td class="px-6 py-4">
                                     <span v-if="d.code" class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">{{ d.code }}</span>
                                     <span v-else class="text-gray-400">—</span>
@@ -104,7 +122,7 @@ const clearSearch = () => { search.value = ''; };
                                     <span v-else class="text-gray-400">— (top-level)</span>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span v-if="d.allowRdDirectRouting" class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">Enabled</span>
+                                    <span v-if="d.allowSdsDirectRouting" class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">Enabled</span>
                                     <span v-else class="text-gray-400">—</span>
                                 </td>
                                 <td class="px-6 py-4">{{ d.usersCount }}</td>
@@ -118,7 +136,7 @@ const clearSearch = () => { search.value = ''; };
                                         <button
                                             type="button"
                                             :disabled="! d.canDelete"
-                                            :title="d.canDelete ? '' : 'Has sub-offices, users, documents, or routing history — reassign or remove those first.'"
+                                            :title="d.canDelete ? '' : (d.isOsds ? 'The Office of the SDS cannot be deleted.' : 'Has sub-offices, users, documents, or routing history — reassign or remove those first.')"
                                             class="text-sm font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline"
                                             @click="deleteDivision(d.id, d.name, d.canDelete)"
                                         >Delete</button>

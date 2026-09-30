@@ -6,7 +6,7 @@ use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\RestrictWeekendAccess;
-use App\Models\ArdAvailabilitySetting;
+use App\Models\AsdsAvailabilitySetting;
 use App\Models\Division;
 use App\Models\Document;
 use App\Models\User;
@@ -15,7 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-class ArdAvailabilityTest extends TestCase
+class AsdsAvailabilityTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -30,7 +30,7 @@ class ArdAvailabilityTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -46,35 +46,35 @@ class ArdAvailabilityTest extends TestCase
         $this->originator->assignRole('originator');
     }
 
-    public function test_ard_is_available_by_default(): void
+    public function test_asds_is_available_by_default(): void
     {
-        $this->assertTrue(ArdAvailabilitySetting::isAvailable());
+        $this->assertTrue(AsdsAvailabilitySetting::isAvailable());
     }
 
-    public function test_admin_can_toggle_ard_availability(): void
+    public function test_admin_can_toggle_asds_availability(): void
     {
         $this->actingAs($this->admin)
-            ->post(route('ard-availability-setting.toggle'))
+            ->post(route('asds-availability-setting.toggle'))
             ->assertRedirect();
 
-        $this->assertFalse(ArdAvailabilitySetting::isAvailable());
+        $this->assertFalse(AsdsAvailabilitySetting::isAvailable());
 
-        $this->actingAs($this->admin)->post(route('ard-availability-setting.toggle'));
-        $this->assertTrue(ArdAvailabilitySetting::isAvailable());
+        $this->actingAs($this->admin)->post(route('asds-availability-setting.toggle'));
+        $this->assertTrue(AsdsAvailabilitySetting::isAvailable());
     }
 
-    public function test_non_admin_cannot_toggle_ard_availability(): void
+    public function test_non_admin_cannot_toggle_asds_availability(): void
     {
         $this->actingAs($this->originator)
-            ->post(route('ard-availability-setting.toggle'))
+            ->post(route('asds-availability-setting.toggle'))
             ->assertForbidden();
 
-        $this->assertTrue(ArdAvailabilitySetting::isAvailable());
+        $this->assertTrue(AsdsAvailabilitySetting::isAvailable());
     }
 
-    public function test_chiefs_own_upload_skips_ard_when_unavailable(): void
+    public function test_chiefs_own_upload_skips_asds_when_unavailable(): void
     {
-        ArdAvailabilitySetting::toggle();
+        AsdsAvailabilitySetting::toggle();
 
         $this->actingAs($this->chief)->post('/documents/outgoing', [
             'title' => 'Chief memo',
@@ -83,10 +83,10 @@ class ArdAvailabilityTest extends TestCase
         ])->assertRedirect();
 
         $document = Document::firstWhere('title', 'Chief memo');
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->status);
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->status);
     }
 
-    public function test_chiefs_own_upload_goes_to_ard_when_available(): void
+    public function test_chiefs_own_upload_goes_to_asds_when_available(): void
     {
         $this->actingAs($this->chief)->post('/documents/outgoing', [
             'title' => 'Chief memo',
@@ -95,12 +95,12 @@ class ArdAvailabilityTest extends TestCase
         ])->assertRedirect();
 
         $document = Document::firstWhere('title', 'Chief memo');
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
     }
 
-    public function test_chief_approval_skips_ard_when_unavailable(): void
+    public function test_chief_approval_skips_asds_when_unavailable(): void
     {
-        ArdAvailabilitySetting::toggle();
+        AsdsAvailabilitySetting::toggle();
 
         $document = Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Memo', 'uploaded_by' => $this->originator->id,
@@ -112,10 +112,10 @@ class ArdAvailabilityTest extends TestCase
             ->post(route('documents.reviews.store', $document), ['action' => 'approved_forwarded'])
             ->assertRedirect();
 
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->fresh()->status);
     }
 
-    public function test_chief_approval_goes_to_ard_when_available(): void
+    public function test_chief_approval_goes_to_asds_when_available(): void
     {
         $document = Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Memo', 'uploaded_by' => $this->originator->id,
@@ -127,19 +127,23 @@ class ArdAvailabilityTest extends TestCase
             ->post(route('documents.reviews.store', $document), ['action' => 'approved_forwarded'])
             ->assertRedirect();
 
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->fresh()->status);
     }
 
-    public function test_unit_head_with_no_parent_chief_skips_ard_when_unavailable(): void
+    public function test_unit_head_with_no_parent_chief_skips_asds_when_unavailable(): void
     {
-        ArdAvailabilitySetting::toggle();
+        AsdsAvailabilitySetting::toggle();
 
-        $unitHead = User::factory()->create(['division_id' => $this->division->id]);
+        // Unlike Finance Division (which has its own chief — see setUp()),
+        // this top-level unit has no chief of its own or above it.
+        $standalone = Division::create(['name' => 'Standalone Unit', 'code' => 'SU']);
+
+        $unitHead = User::factory()->create(['division_id' => $standalone->id]);
         $unitHead->assignRole('unit_head');
 
         $document = Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Memo', 'uploaded_by' => $this->originator->id,
-            'division_id' => $this->division->id, 'file_path' => 'outgoing/a.pdf',
+            'division_id' => $standalone->id, 'file_path' => 'outgoing/a.pdf',
             'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingUnitHeadReview,
         ]);
 
@@ -147,28 +151,28 @@ class ArdAvailabilityTest extends TestCase
             ->post(route('documents.reviews.store', $document), ['action' => 'approved_forwarded'])
             ->assertRedirect();
 
-        // Finance Division has no parent division, so it would normally go
-        // straight to ARD from here — now it should skip to RD instead.
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->fresh()->status);
+        // No chief anywhere above, so it would normally go straight to ASDS
+        // from here — now it should skip to SDS instead.
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->fresh()->status);
     }
 
-    public function test_toggling_does_not_affect_a_document_already_pending_ard_review(): void
+    public function test_toggling_does_not_affect_a_document_already_pending_asds_review(): void
     {
         $document = Document::create([
             'type' => DocumentType::Outgoing, 'title' => 'Memo', 'uploaded_by' => $this->originator->id,
             'division_id' => $this->division->id, 'file_path' => 'outgoing/a.pdf',
-            'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingArdReview,
+            'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::PendingAsdsReview,
         ]);
 
-        ArdAvailabilitySetting::toggle();
+        AsdsAvailabilitySetting::toggle();
 
-        $ard = User::factory()->create();
-        $ard->assignRole('ard');
+        $asds = User::factory()->create();
+        $asds->assignRole('asds');
 
-        $this->actingAs($ard)
+        $this->actingAs($asds)
             ->post(route('documents.reviews.store', $document), ['action' => 'approved_forwarded'])
             ->assertRedirect();
 
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->fresh()->status);
     }
 }

@@ -14,7 +14,7 @@ class DocumentRouting extends Model
         'is_rush',
         'remarks',
         'routed_at',
-        'is_rd_routing',
+        'is_sds_routing',
         'cancelled_at',
         'cancelled_by',
     ];
@@ -24,7 +24,7 @@ class DocumentRouting extends Model
         return [
             'is_rush'       => 'boolean',
             'routed_at'     => 'datetime',
-            'is_rd_routing' => 'boolean',
+            'is_sds_routing' => 'boolean',
             'cancelled_at'  => 'datetime',
         ];
     }

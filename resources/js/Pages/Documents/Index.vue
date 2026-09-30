@@ -12,7 +12,7 @@ const props = defineProps({
     canCreateOutgoing:  Boolean,
     canCreateIncoming:  Boolean,
     isRecordsSection:   Boolean,
-    isRd:               Boolean,
+    isSds:               Boolean,
     forApprovalCount:   Number,
     forRoutingCount:    Number,
 });
@@ -22,8 +22,8 @@ const STATUS_LABEL = {
     submitted:                     'Submitted',
     pending_unit_head_review:      'Pending Unit Head Review',
     pending_division_chief_review: 'Pending DC Review',
-    pending_ard_review:            'Pending Recommending Approval',
-    pending_rd_review:             'Pending SDS Review',
+    pending_asds_review:            'Pending Recommending Approval',
+    pending_sds_review:             'Pending SDS Review',
     approved:                      'Approved',
     for_comment:                   'For Comment',
     returned_for_revision:         'Returned',
@@ -43,8 +43,8 @@ const STATUS_CLASS = {
     submitted:                     'bg-yellow-100 text-yellow-800',
     pending_unit_head_review:      'bg-orange-100 text-orange-800',
     pending_division_chief_review: 'bg-yellow-100 text-yellow-800',
-    pending_ard_review:            'bg-indigo-100 text-indigo-800',
-    pending_rd_review:             'bg-indigo-100 text-indigo-800',
+    pending_asds_review:            'bg-indigo-100 text-indigo-800',
+    pending_sds_review:             'bg-indigo-100 text-indigo-800',
     approved:                      'bg-green-100 text-green-800',
     for_comment:                   'bg-amber-100 text-amber-800',
     returned_for_revision:         'bg-red-100 text-red-800',
@@ -117,7 +117,7 @@ const TABS = computed(() => {
     // "For Action" tab — everyone else keeps the combined view. For the SDS,
     // her action queues lead (left) and the document lists follow (right),
     // since that's what she reaches for first.
-    if (props.isRd) {
+    if (props.isSds) {
         tabs.push(
             { key: 'for_approval', label: 'For Approval', count: props.forApprovalCount },
             { key: 'for_routing',  label: 'For Routing',  count: props.forRoutingCount },
@@ -207,14 +207,14 @@ const reviewForm = useForm({ action: '', remarks: '' });
 // store()'s remarks-win rule), so requiring an explicit pick would just be
 // friction. Every other stage/role still must pick an action.
 const canSubmitReview = computed(() =>
-    reviewForm.action || (previewDoc.value?.status === 'pending_rd_review' && reviewForm.remarks.trim() !== ''));
+    reviewForm.action || (previewDoc.value?.status === 'pending_sds_review' && reviewForm.remarks.trim() !== ''));
 
 // Same 'approved_forwarded' action, worded per the current stage — mirrors
 // Documents/Show.vue's approveActionLabel.
 const approveActionLabel = computed(() => {
     switch (previewDoc.value?.status) {
-        case 'pending_rd_review':             return 'Approve';
-        case 'pending_ard_review':            return 'Recommend for Approval';
+        case 'pending_sds_review':             return 'Approve';
+        case 'pending_asds_review':            return 'Recommend for Approval';
         case 'submitted':
         case 'pending_division_chief_review': return 'Review & Forward';
         default:                              return 'Approve & Forward';
@@ -738,7 +738,7 @@ watch(showPreviewModal, (open) => {
                                 class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500"
                             />
                             <p v-if="reviewForm.errors.remarks" class="text-xs text-red-600">{{ reviewForm.errors.remarks }}</p>
-                            <p v-if="previewDoc.status === 'pending_rd_review'" class="text-xs text-gray-500">
+                            <p v-if="previewDoc.status === 'pending_sds_review'" class="text-xs text-gray-500">
                                 Note: if you enter remarks here, this document will be returned for revision instead of approved — you don't need to pick an action, remarks alone are enough.
                             </p>
 

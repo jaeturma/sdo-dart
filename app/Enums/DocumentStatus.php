@@ -9,8 +9,8 @@ enum DocumentStatus: string
     case Submitted                  = 'submitted';
     case PendingUnitHeadReview      = 'pending_unit_head_review';
     case PendingDivisionChiefReview = 'pending_division_chief_review';
-    case PendingArdReview          = 'pending_ard_review';
-    case PendingRdReview           = 'pending_rd_review';
+    case PendingAsdsReview          = 'pending_asds_review';
+    case PendingSdsReview           = 'pending_sds_review';
     case Approved                  = 'approved';
     case ForComment                = 'for_comment';
     case ReturnedForRevision       = 'returned_for_revision';

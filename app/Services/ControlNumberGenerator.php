@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Division code resolution: a division's own `code` if set, else its
  * *parent's* `code` — several real sub-units (Legal Unit/Public Affairs
- * Unit/ICT Unit under ORD; Procurement Unit/Personnel Section/Cash Section
+ * Unit/ICT Unit under OSDS; Procurement Unit/Personnel Section/Cash Section
  * etc. under Administrative Division) were seeded with no `code` of their
  * own (see CLAUDE.md "Divisions", DivisionSeeder). Falls back to a literal
  * 'GEN' if neither has one — no currently-seeded division should hit that

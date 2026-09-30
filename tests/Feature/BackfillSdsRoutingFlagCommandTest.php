@@ -15,42 +15,42 @@ use Tests\TestCase;
 
 /**
  * Reproduces the production scenario this backfill fixes: Florence and
- * Agnes routed documents to division chiefs while they were the RD's (ORD)
+ * Agnes routed documents to division chiefs while they were the SDS's (OSDS)
  * secretaries. They were later transferred to Administrative Division, so
- * they no longer pass isOrdSecretary() today — meaning their historical
- * routings, created before is_rd_routing existed, need a one-time backfill
- * to be recognized as "the RD's queue was served" going forward.
+ * they no longer pass isOsdsSecretary() today — meaning their historical
+ * routings, created before is_sds_routing existed, need a one-time backfill
+ * to be recognized as "the SDS's queue was served" going forward.
  */
-class BackfillRdRoutingFlagCommandTest extends TestCase
+class BackfillSdsRoutingFlagCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private Division $ordp;
+    private Division $osds;
+    private Division $osdsp;
     private Division $ad;
-    private User $rd;
+    private User $sds;
     private User $chief;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $this->ord->id]);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $this->osds->id]);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create(['division_id' => $this->ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $this->osds->id]);
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->ad->id]);
         $this->chief->assignRole('division_chief');
     }
 
-    /** Simulates a pre-existing routing created before is_rd_routing existed. */
+    /** Simulates a pre-existing routing created before is_sds_routing existed. */
     private function legacyRouting(User $router, Document $document): DocumentRouting
     {
         $routing = DocumentRouting::create([
@@ -68,24 +68,24 @@ class BackfillRdRoutingFlagCommandTest extends TestCase
 
     public function test_dry_run_reports_florences_legacy_routing_without_changing_anything(): void
     {
-        // Florence WAS the ORD secretary when she routed this — but has
+        // Florence WAS the OSDS secretary when she routed this — but has
         // SINCE been transferred to Administrative Division.
         $florence = User::factory()->create(['division_id' => $this->ad->id]);
         $florence->assignRole('secretary');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Florence memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Florence memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/05/florence.pdf', 'file_hash' => hash('sha256', 'florence'),
             'status' => DocumentStatus::Routed,
         ]);
         $routing = $this->legacyRouting($florence, $document);
 
-        $this->artisan('documents:backfill-rd-routing-flag')
+        $this->artisan('documents:backfill-sds-routing-flag')
             ->expectsOutputToContain('Florence memo')
             ->assertExitCode(0);
 
         $routing->refresh();
-        $this->assertFalse($routing->is_rd_routing);
+        $this->assertFalse($routing->is_sds_routing);
     }
 
     public function test_apply_marks_secretarys_legacy_routing_even_after_division_transfer(): void
@@ -94,47 +94,47 @@ class BackfillRdRoutingFlagCommandTest extends TestCase
         $florence->assignRole('secretary');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Florence memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Florence memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/05/florence.pdf', 'file_hash' => hash('sha256', 'florence'),
             'status' => DocumentStatus::Routed,
         ]);
         $routing = $this->legacyRouting($florence, $document);
 
-        $this->artisan('documents:backfill-rd-routing-flag', ['--apply' => true])
-            ->expectsConfirmation('Mark 1 routing(s) as is_rd_routing = true now?', 'yes')
+        $this->artisan('documents:backfill-sds-routing-flag', ['--apply' => true])
+            ->expectsConfirmation('Mark 1 routing(s) as is_sds_routing = true now?', 'yes')
             ->assertExitCode(0);
 
         $routing->refresh();
-        $this->assertTrue($routing->is_rd_routing);
+        $this->assertTrue($routing->is_sds_routing);
 
-        // Now the RD correctly no longer sees it as needing her action.
-        $this->assertFalse($this->rd->can('route', $document->fresh()));
+        // Now the SDS correctly no longer sees it as needing her action.
+        $this->assertFalse($this->sds->can('route', $document->fresh()));
     }
 
-    public function test_apply_marks_legacy_routing_by_the_rd_herself(): void
+    public function test_apply_marks_legacy_routing_by_the_sds_herself(): void
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'RD memo', 'uploaded_by' => $this->rd->id,
-            'file_path' => 'incoming/2026/05/rd.pdf', 'file_hash' => hash('sha256', 'rd'),
+            'type' => DocumentType::Incoming, 'title' => 'SDS memo', 'uploaded_by' => $this->sds->id,
+            'file_path' => 'incoming/2026/05/sds.pdf', 'file_hash' => hash('sha256', 'sds'),
             'status' => DocumentStatus::Routed,
         ]);
-        $routing = $this->legacyRouting($this->rd, $document);
+        $routing = $this->legacyRouting($this->sds, $document);
 
-        $this->artisan('documents:backfill-rd-routing-flag', ['--apply' => true])
-            ->expectsConfirmation('Mark 1 routing(s) as is_rd_routing = true now?', 'yes')
+        $this->artisan('documents:backfill-sds-routing-flag', ['--apply' => true])
+            ->expectsConfirmation('Mark 1 routing(s) as is_sds_routing = true now?', 'yes')
             ->assertExitCode(0);
 
         $routing->refresh();
-        $this->assertTrue($routing->is_rd_routing);
+        $this->assertTrue($routing->is_sds_routing);
     }
 
     public function test_does_not_touch_a_chiefs_own_onward_routing(): void
     {
-        $secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $secretary->assignRole('secretary');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Onward memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Onward memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/05/onward.pdf', 'file_hash' => hash('sha256', 'onward'),
             'status' => DocumentStatus::Routed,
         ]);
@@ -156,42 +156,42 @@ class BackfillRdRoutingFlagCommandTest extends TestCase
             'action' => 'appropriate_action', 'status' => 'pending',
         ]);
 
-        $this->artisan('documents:backfill-rd-routing-flag', ['--apply' => true])
-            ->expectsConfirmation('Mark 1 routing(s) as is_rd_routing = true now?', 'yes')
+        $this->artisan('documents:backfill-sds-routing-flag', ['--apply' => true])
+            ->expectsConfirmation('Mark 1 routing(s) as is_sds_routing = true now?', 'yes')
             ->assertExitCode(0);
 
         $dispatch->refresh();
         $onward->refresh();
-        $this->assertTrue($dispatch->is_rd_routing, 'the top-level dispatch should be marked');
-        $this->assertFalse($onward->is_rd_routing, "the chief's own onward routing must never be marked");
+        $this->assertTrue($dispatch->is_sds_routing, 'the top-level dispatch should be marked');
+        $this->assertFalse($onward->is_sds_routing, "the chief's own onward routing must never be marked");
     }
 
     public function test_reports_ambiguous_routing_separately_and_does_not_apply_it_by_default(): void
     {
         // Agnes routed while a secretary, but has SINCE been moved off the
         // secretary role entirely (not just transferred divisions) — we
-        // can no longer automatically confirm she was the ORD secretary at
+        // can no longer automatically confirm she was the OSDS secretary at
         // the time, so this must be reported, not silently auto-fixed.
         $agnes = User::factory()->create(['division_id' => $this->ad->id]);
         $agnes->assignRole('originator');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Agnes memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Agnes memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/05/agnes.pdf', 'file_hash' => hash('sha256', 'agnes'),
             'status' => DocumentStatus::Routed,
         ]);
         $routing = $this->legacyRouting($agnes, $document);
 
-        $this->artisan('documents:backfill-rd-routing-flag')
+        $this->artisan('documents:backfill-sds-routing-flag')
             ->expectsOutputToContain('needs manual confirmation')
             ->expectsOutputToContain('Agnes memo')
             ->assertExitCode(0);
 
-        $this->artisan('documents:backfill-rd-routing-flag', ['--apply' => true])
+        $this->artisan('documents:backfill-sds-routing-flag', ['--apply' => true])
             ->assertExitCode(0);
 
         $routing->refresh();
-        $this->assertFalse($routing->is_rd_routing, 'ambiguous rows must not be auto-applied without --also-mark-ambiguous');
+        $this->assertFalse($routing->is_sds_routing, 'ambiguous rows must not be auto-applied without --also-mark-ambiguous');
     }
 
     public function test_also_mark_ambiguous_applies_the_ambiguous_rows_too(): void
@@ -200,24 +200,24 @@ class BackfillRdRoutingFlagCommandTest extends TestCase
         $agnes->assignRole('originator');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Agnes memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Agnes memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/05/agnes.pdf', 'file_hash' => hash('sha256', 'agnes'),
             'status' => DocumentStatus::Routed,
         ]);
         $routing = $this->legacyRouting($agnes, $document);
 
-        $this->artisan('documents:backfill-rd-routing-flag', ['--apply' => true, '--also-mark-ambiguous' => true])
-            ->expectsConfirmation('Mark 1 routing(s) as is_rd_routing = true now?', 'yes')
+        $this->artisan('documents:backfill-sds-routing-flag', ['--apply' => true, '--also-mark-ambiguous' => true])
+            ->expectsConfirmation('Mark 1 routing(s) as is_sds_routing = true now?', 'yes')
             ->assertExitCode(0);
 
         $routing->refresh();
-        $this->assertTrue($routing->is_rd_routing);
+        $this->assertTrue($routing->is_sds_routing);
     }
 
     public function test_does_not_touch_the_auto_forward_routing(): void
     {
-        $records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
-        $secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
+        $secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $secretary->assignRole('secretary');
 
         $document = Document::create([
@@ -235,11 +235,11 @@ class BackfillRdRoutingFlagCommandTest extends TestCase
             'action' => 'file', 'status' => 'pending',
         ]);
 
-        $this->artisan('documents:backfill-rd-routing-flag')
+        $this->artisan('documents:backfill-sds-routing-flag')
             ->expectsOutputToContain('No affected')
             ->assertExitCode(0);
 
         $autoRouting->refresh();
-        $this->assertFalse($autoRouting->is_rd_routing);
+        $this->assertFalse($autoRouting->is_sds_routing);
     }
 }

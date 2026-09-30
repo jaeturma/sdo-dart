@@ -32,7 +32,7 @@ class ResubmissionTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -40,6 +40,11 @@ class ResubmissionTest extends TestCase
 
         $this->originator = User::factory()->create(['division_id' => $this->division->id]);
         $this->originator->assignRole('originator');
+
+        // A chief to review at the `Submitted` stage — without one anywhere
+        // above the originator, initialStatus() skips straight to ASDS.
+        $chief = User::factory()->create(['division_id' => $this->division->id]);
+        $chief->assignRole('division_chief');
     }
 
     private function createDocumentAt(DocumentStatus $status): Document

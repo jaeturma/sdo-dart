@@ -42,7 +42,7 @@ class DocumentSignature extends Model
     }
 
     /**
-     * One or more visual placements of the RD's signature across the
+     * One or more visual placements of the SDS's signature across the
      * document — see DocumentSignaturePlacement. `signature_page`/
      * `sig_x_percent`/`sig_y_percent`/`sig_width_percent` on this row still
      * mirror the *first* placement for backward compatibility with anything

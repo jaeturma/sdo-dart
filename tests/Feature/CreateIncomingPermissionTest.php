@@ -14,9 +14,9 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Only the RD's secretary (ORD Proper), Records Section staff — plus
- * admin/rd — may upload incoming documents. Other ORD sub-unit staff (ICTU,
- * LU, PAU) sit within the ORD division tree but don't receive incoming mail
+ * Only the SDS's secretary (OSDS Proper), Records Section staff — plus
+ * admin/sds — may upload incoming documents. Other OSDS sub-unit staff (ICTU,
+ * LU, PAU) sit within the OSDS division tree but don't receive incoming mail
  * themselves, so originator/unit_head roles there must not see or be able to
  * use "+ Upload Incoming".
  */
@@ -24,8 +24,8 @@ class CreateIncomingPermissionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private Division $ordp;
+    private Division $osds;
+    private Division $osdsp;
     private Division $pau;
     private Division $records;
 
@@ -35,19 +35,19 @@ class CreateIncomingPermissionTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord     = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp    = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $this->ord->id]);
-        $this->pau     = Division::create(['name' => 'Public Affairs Unit', 'code' => 'PAU', 'parent_id' => $this->ord->id]);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS']);
+        $this->osds     = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp    = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $this->osds->id]);
+        $this->pau     = Division::create(['name' => 'Public Affairs Unit', 'code' => 'PAU', 'parent_id' => $this->osds->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true]);
     }
 
-    public function test_secretary_in_ordp_can_upload_incoming(): void
+    public function test_secretary_in_osdsp_can_upload_incoming(): void
     {
-        $secretary = User::factory()->create(['division_id' => $this->ordp->id]);
+        $secretary = User::factory()->create(['division_id' => $this->osdsp->id]);
         $secretary->assignRole('secretary');
 
         $this->assertTrue($secretary->can('createIncoming', Document::class));
@@ -73,11 +73,11 @@ class CreateIncomingPermissionTest extends TestCase
         $this->assertFalse($unitHead->can('createIncoming', Document::class));
     }
 
-    public function test_rd_and_admin_can_still_upload_incoming(): void
+    public function test_sds_and_admin_can_still_upload_incoming(): void
     {
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
-        $this->assertTrue($rd->can('createIncoming', Document::class));
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
+        $this->assertTrue($sds->can('createIncoming', Document::class));
 
         $admin = User::factory()->create();
         $admin->assignRole('admin');
@@ -102,13 +102,13 @@ class CreateIncomingPermissionTest extends TestCase
         $this->assertTrue($staff->can('createIncoming', Document::class));
     }
 
-    public function test_records_section_upload_lands_at_received_and_is_visible_to_the_rd(): void
+    public function test_records_section_upload_lands_at_received_and_is_visible_to_the_sds(): void
     {
         $staff = User::factory()->create(['division_id' => $this->records->id]);
         $staff->assignRole('originator');
 
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
 
         $file = UploadedFile::fake()->createWithContent('inbound.pdf', '%PDF-1.4 fake pdf content for tests');
 
@@ -123,13 +123,13 @@ class CreateIncomingPermissionTest extends TestCase
         $response->assertRedirect(route('documents.show', $document));
 
         // No auto-forward for Records Section uploads (that only fires for
-        // ORD Proper's division code) — it just sits at Received, awaiting
-        // the RD to route it to a chief.
+        // OSDS Proper's division code) — it just sits at Received, awaiting
+        // the SDS to route it to a chief.
         $this->assertSame(DocumentStatus::Received, $document->status);
         $this->assertCount(0, $document->routings);
 
-        $this->assertTrue($rd->can('view', $document));
-        $this->assertContains($document->id, $this->forActionScopeIds($rd));
+        $this->assertTrue($sds->can('view', $document));
+        $this->assertContains($document->id, $this->forActionScopeIds($sds));
     }
 
     /** @return array<int> */

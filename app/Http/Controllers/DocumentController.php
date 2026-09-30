@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use App\Enums\RecipientStatus;
 use App\Models\Division;
 use App\Models\Document;
+use App\Models\UserSigningCredential;
 use App\Services\AuditLogger;
 use App\Traits\DocumentScopesTrait;
 use Illuminate\Http\RedirectResponse;
@@ -83,7 +85,7 @@ class DocumentController extends Controller
                 // Eager-loaded so the can_review/can_route checks below (via
                 // DocumentPolicy::review()/route()) read from an already-fetched
                 // relation instead of firing 1-2 fresh queries per row.
-                'routings:id,document_id,routed_by,is_rd_routing,cancelled_at,remarks',
+                'routings:id,document_id,routed_by,is_sds_routing,cancelled_at,remarks',
                 'routings.recipients:id,routing_id,user_id,division_id,status',
             ])
             ->withExists(['routings as has_rush_routing' => fn ($q) => $q->where('is_rush', true)])
@@ -101,12 +103,12 @@ class DocumentController extends Controller
 
         $forActionCount = (clone $forActionBase)->count();
 
-        $isRd = $user->hasRole('rd');
-        // RD's "For Action" is split into two focused lists (For Approval /
-        // For Routing) rather than one mixed queue — only computed for RD to
+        $isSds = $user->hasRole('sds');
+        // SDS's "For Action" is split into two focused lists (For Approval /
+        // For Routing) rather than one mixed queue — only computed for SDS to
         // avoid two extra counting queries for every other role.
-        $forApprovalCount = $isRd ? (clone $forActionBase)->where('type', DocumentType::Outgoing)->count() : null;
-        $forRoutingCount = $isRd ? (clone $forActionBase)->where('type', DocumentType::Incoming)->count() : null;
+        $forApprovalCount = $isSds ? (clone $forActionBase)->where('type', DocumentType::Outgoing)->count() : null;
+        $forRoutingCount = $isSds ? (clone $forActionBase)->where('type', DocumentType::Incoming)->count() : null;
 
         $canCreateOutgoing = $user->can('createOutgoing', Document::class);
         $canCreateIncoming = $user->can('createIncoming', Document::class);
@@ -116,7 +118,7 @@ class DocumentController extends Controller
 
         return Inertia::render('Documents/Index', compact(
             'documents', 'tab', 'search', 'mine', 'forActionCount', 'canCreateOutgoing', 'canCreateIncoming', 'isRecordsSection',
-            'isRd', 'forApprovalCount', 'forRoutingCount',
+            'isSds', 'forApprovalCount', 'forRoutingCount',
         ));
     }
 
@@ -153,6 +155,15 @@ class DocumentController extends Controller
         $canReturnToOwner = $user->can('returnToOwner', $document);
         $canReturnForCorrection = $user->can('returnForCorrection', $document);
         $canArchive = $user->can('archive', $document);
+
+        // sign() also requires the SDS's own signing credential, so the Sign
+        // button stays hidden until the SDS uploads one. Tell the secretary
+        // that's why, so they can ask the SDS to upload it, instead of the
+        // button just silently not appearing.
+        $sdsSignatureMissing = $user->hasRole('secretary')
+            && $document->type === DocumentType::Outgoing
+            && $document->status === DocumentStatus::Approved
+            && UserSigningCredential::forSds() === null;
 
         $document->routings->each(function ($routing) use ($user) {
             $routing->setAttribute('can_cancel', $user->can('cancel', $routing));
@@ -191,14 +202,14 @@ class DocumentController extends Controller
                 || ($r->division_id !== null && $r->division_id === $user->division_id));
 
         // A division chief's (or a unit head's, if their division is
-        // flagged allow_rd_direct_routing — e.g. ICTU/LU/PAU) acknowledgement
+        // flagged allow_sds_direct_routing — e.g. ICTU/LU/PAU) acknowledgement
         // doesn't auto-complete their assignment — they may still route it
         // to their own staff instead — so the frontend needs to know to show
         // that deferred state rather than treating acknowledge as final. See
         // DocumentRoutingRecipientController::acknowledge()/isDirectRoutableUnitHead().
         $isDirectRoutableUnitHead = $user->hasRole('unit_head')
             && $user->division_id !== null
-            && (bool) $user->division?->allow_rd_direct_routing;
+            && (bool) $user->division?->allow_sds_direct_routing;
         $recipientMayDeferCompletion = ($user->hasRole('division_chief') || $isDirectRoutableUnitHead) && $user->division_id !== null;
 
         if (in_array($document->status->value, ['signed', 'released'], true)) {
@@ -212,6 +223,7 @@ class DocumentController extends Controller
         return Inertia::render('Documents/Show', compact(
             'document', 'canReview', 'canRoute', 'canSign', 'canUndoSignature', 'canDelete', 'canResubmit', 'canRelease', 'canMarkEmailed',
             'canReturnToOwner', 'canReturnForCorrection', 'canArchive', 'recipientAssignment', 'recipientMayDeferCompletion',
+            'sdsSignatureMissing',
         ));
     }
 

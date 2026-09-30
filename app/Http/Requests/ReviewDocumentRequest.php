@@ -30,13 +30,13 @@ class ReviewDocumentRequest extends FormRequest
     {
         $document = $this->route('document');
 
-        // The RD's own remarks alone always imply "send it back" (see
+        // The SDS's own remarks alone always imply "send it back" (see
         // DocumentReviewController::store()'s remarks-win rule, which
         // already overrides an explicit Approve pick the same way) — so at
         // her own review stage specifically, she may submit remarks with no
         // action selected at all, rather than being forced to pick one just
         // to satisfy this rule. Every other stage/role still must pick one.
-        $isRdStage = $document instanceof Document && $document->status === DocumentStatus::PendingRdReview;
+        $isSdsStage = $document instanceof Document && $document->status === DocumentStatus::PendingSdsReview;
         $hasRemarks = trim((string) $this->input('remarks')) !== '';
 
         // 'for_comment' means there's a comment to make — an empty remarks
@@ -49,7 +49,7 @@ class ReviewDocumentRequest extends FormRequest
         ]);
 
         return [
-            'action' => [$isRdStage && $hasRemarks ? 'nullable' : 'required', Rule::enum(ReviewAction::class)],
+            'action' => [$isSdsStage && $hasRemarks ? 'nullable' : 'required', Rule::enum(ReviewAction::class)],
             'remarks' => [
                 $requiresRemarks ? 'required' : 'nullable',
                 'string',

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\ArdAvailabilitySettingController;
+use App\Http\Controllers\AsdsAvailabilitySettingController;
 use App\Http\Controllers\Auth\ForcedPasswordChangeController;
 use App\Http\Controllers\Auth\TwoFactorSetupController;
 use App\Http\Controllers\DashboardController;
@@ -16,6 +16,7 @@ use App\Http\Controllers\IncomingDocumentController;
 use App\Http\Controllers\IncomingDocumentLogController;
 use App\Http\Controllers\MagicLinkController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OriginatorUploadSettingController;
 use App\Http\Controllers\OutgoingDocumentController;
 use App\Http\Controllers\PasswordPolicyController;
 use App\Http\Controllers\ProfileController;
@@ -32,7 +33,7 @@ Route::get('/', function () {
     ]);
 });
 
-// RD magic login — public, no auth middleware, cryptographically signed
+// SDS magic login — public, no auth middleware, cryptographically signed
 Route::get('/magic-login', [MagicLinkController::class, 'consume'])->name('magic-login');
 
 // 2FA mandatory setup + forced password change — require auth but are
@@ -93,8 +94,8 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
     Route::get('/documents/{document}/file', [DocumentController::class, 'file'])
         ->name('documents.file');
 
-    // RD "Approve & Sign" — interactive signature placement page + sign action
-    // (the secretary attaches the RD's own credential, not one of her own)
+    // SDS "Approve & Sign" — interactive signature placement page + sign action
+    // (the secretary attaches the SDS's own credential, not one of her own)
     Route::get('/documents/{document}/sign', [DocumentSignatureController::class, 'create'])
         ->name('documents.sign.create');
     Route::get('/documents/{document}/sign/esig', [DocumentSignatureController::class, 'esig'])
@@ -111,7 +112,7 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
 
     // Records Section marks a signed outgoing document as physically released —
     // interactive release-stamp placement page + release action (mirrors the
-    // RD's sign.create/sign.store pair above), then download the stamped PDF.
+    // SDS's sign.create/sign.store pair above), then download the stamped PDF.
     Route::get('/documents/{document}/release', [DocumentReleaseStampController::class, 'create'])
         ->name('documents.release.create');
     Route::post('/documents/{document}/release', [DocumentReleaseStampController::class, 'store'])
@@ -125,7 +126,7 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
     // Review actions on outgoing documents
     Route::post('/documents/{document}/reviews', [DocumentReviewController::class, 'store'])
         ->name('documents.reviews.store');
-    // Secretary: send an Approved document back to its owner when the RD's own
+    // Secretary: send an Approved document back to its owner when the SDS's own
     // remarks were overlooked instead of enforced as a return (see DocumentPolicy::returnToOwner())
     Route::post('/documents/{document}/return-to-owner', [DocumentReviewController::class, 'returnToOwner'])
         ->name('documents.return-to-owner');
@@ -137,10 +138,10 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
     // Route an incoming document to recipients
     Route::post('/documents/{document}/routings', [DocumentRoutingController::class, 'store'])
         ->name('documents.routings.store');
-    // Undo a routing round issued by mistake (division chief, or RD/her ORD secretary, before anyone's acted on it)
+    // Undo a routing round issued by mistake (division chief, or SDS/her OSDS secretary, before anyone's acted on it)
     Route::delete('/documents/{document}/routings/{routing}', [DocumentRoutingController::class, 'cancel'])
         ->name('documents.routings.cancel');
-    // RD's ORD secretary: file a Records-Section-uploaded incoming document that doesn't need routing (see DocumentPolicy::archive())
+    // SDS's OSDS secretary: file a Records-Section-uploaded incoming document that doesn't need routing (see DocumentPolicy::archive())
     Route::post('/documents/{document}/archive', [DocumentRoutingController::class, 'archive'])
         ->name('documents.archive');
 
@@ -183,7 +184,7 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
     // Allow/revoke a user's weekend login access (admin only) — disabled by default
     Route::post('/users/{user}/toggle-weekend-access', [UserController::class, 'toggleWeekendAccess'])->name('users.toggle-weekend-access');
 
-    // Generate magic login link for RD (admin only)
+    // Generate magic login link for SDS (admin only)
     Route::post('/users/{targetUser}/magic-link', [MagicLinkController::class, 'generate'])->name('users.magic-link');
 
     // Rotate the magic-link signing secret, invalidating all outstanding links (admin only)
@@ -198,6 +199,9 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
     // Toggle whether email verification is required app-wide (admin only)
     Route::post('/email-verification-setting/toggle', [EmailVerificationSettingController::class, 'toggle'])->name('email-verification-setting.toggle');
 
-    // Toggle whether ARD review is skipped for outgoing documents (admin only)
-    Route::post('/ard-availability-setting/toggle', [ArdAvailabilitySettingController::class, 'toggle'])->name('ard-availability-setting.toggle');
+    // Toggle whether ASDS review is skipped for outgoing documents (admin only)
+    Route::post('/asds-availability-setting/toggle', [AsdsAvailabilitySettingController::class, 'toggle'])->name('asds-availability-setting.toggle');
+
+    // Toggle whether every originator (not just KMT Focal) may create outgoing documents (admin only)
+    Route::post('/originator-upload-setting/toggle', [OriginatorUploadSettingController::class, 'toggle'])->name('originator-upload-setting.toggle');
 });

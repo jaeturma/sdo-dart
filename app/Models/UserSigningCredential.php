@@ -33,12 +33,12 @@ class UserSigningCredential extends Model
     }
 
     /**
-     * The signing credential belongs to the RD; the secretary attaches it on
-     * the RD's behalf, so signing always uses this rather than the acting
+     * The signing credential belongs to the SDS; the secretary attaches it on
+     * the SDS's behalf, so signing always uses this rather than the acting
      * user's own credential.
      */
-    public static function forRegionalDirector(): ?self
+    public static function forSds(): ?self
     {
-        return User::role('rd')->first()?->signingCredential;
+        return User::role('sds')->first()?->signingCredential;
     }
 }

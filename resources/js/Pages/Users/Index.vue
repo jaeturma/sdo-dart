@@ -11,7 +11,8 @@ const props = defineProps({
     twoFactorEnforced: Boolean,
     passwordForceResetAt: String,
     emailVerificationEnforced: Boolean,
-    ardAvailable: Boolean,
+    asdsAvailable: Boolean,
+    allOriginatorsCanUpload: Boolean,
 });
 
 const page     = usePage();
@@ -21,8 +22,8 @@ const temporaryPassword = computed(() => page.props.flash?.temporary_password ??
 
 const ROLE_CLASS = {
     admin:          'bg-red-100 text-red-800',
-    rd:             'bg-purple-100 text-purple-800',
-    ard:            'bg-indigo-100 text-indigo-800',
+    sds:             'bg-purple-100 text-purple-800',
+    asds:            'bg-indigo-100 text-indigo-800',
     division_chief: 'bg-blue-100 text-blue-800',
     unit_head:      'bg-orange-100 text-orange-800',
     originator:     'bg-gray-100 text-gray-700',
@@ -165,13 +166,22 @@ const toggleEmailVerification = () => {
     emailVerificationForm.post(route('email-verification-setting.toggle'));
 };
 
-const ardAvailabilityForm = useForm({});
-const toggleArdAvailability = () => {
-    const message = props.ardAvailable
+const asdsAvailabilityForm = useForm({});
+const toggleAsdsAvailability = () => {
+    const message = props.asdsAvailable
         ? 'Mark ASDS as unavailable? Outgoing documents will skip ASDS review entirely and go straight from the division chief to the SDS until this is turned back on.'
         : 'Mark ASDS as available again? Outgoing documents will go through ASDS review as normal.';
     if (! confirm(message)) return;
-    ardAvailabilityForm.post(route('ard-availability-setting.toggle'));
+    asdsAvailabilityForm.post(route('asds-availability-setting.toggle'));
+};
+
+const originatorUploadForm = useForm({});
+const toggleOriginatorUpload = () => {
+    const message = props.allOriginatorsCanUpload
+        ? 'Restrict outgoing document creation to KMT Focal again? Staff / Originators who are not KMT Focal will no longer be able to create outgoing documents.'
+        : 'Allow every Staff / Originator to create outgoing documents, even if they are not KMT Focal?';
+    if (! confirm(message)) return;
+    originatorUploadForm.post(route('originator-upload-setting.toggle'));
 };
 
 const search = ref(props.search ?? '');
@@ -324,19 +334,39 @@ const clearSearch = () => { search.value = ''; };
                     <div>
                         <p class="text-sm font-semibold text-gray-800">ASDS Availability</p>
                         <p class="mt-1 text-xs text-gray-500">
-                            <span v-if="ardAvailable">Outgoing documents go through ASDS review as normal.</span>
+                            <span v-if="asdsAvailable">Outgoing documents go through ASDS review as normal.</span>
                             <span v-else>ASDS marked unavailable — outgoing documents skip ASDS and go straight to the SDS.</span>
                         </p>
                     </div>
                     <button
                         type="button"
-                        :disabled="ardAvailabilityForm.processing"
+                        :disabled="asdsAvailabilityForm.processing"
                         class="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-                        :class="ardAvailable
+                        :class="asdsAvailable
                             ? 'border-red-300 bg-white text-red-700 hover:bg-red-50'
                             : 'border-green-300 bg-white text-green-700 hover:bg-green-50'"
-                        @click="toggleArdAvailability"
-                    >{{ ardAvailable ? 'Mark Unavailable' : 'Mark Available' }}</button>
+                        @click="toggleAsdsAvailability"
+                    >{{ asdsAvailable ? 'Mark Unavailable' : 'Mark Available' }}</button>
+                </div>
+
+                <!-- ── Outgoing uploads by originators ───────────────────── -->
+                <div class="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">Outgoing Uploads by Staff / Originators</p>
+                        <p class="mt-1 text-xs text-gray-500">
+                            <span v-if="allOriginatorsCanUpload">Open to all — every Staff / Originator can create outgoing documents, KMT Focal or not.</span>
+                            <span v-else>KMT Focal only — a Staff / Originator needs the KMT Focal tag to create outgoing documents.</span>
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        :disabled="originatorUploadForm.processing"
+                        class="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                        :class="allOriginatorsCanUpload
+                            ? 'border-red-300 bg-white text-red-700 hover:bg-red-50'
+                            : 'border-green-300 bg-white text-green-700 hover:bg-green-50'"
+                        @click="toggleOriginatorUpload"
+                    >{{ allOriginatorsCanUpload ? 'Restrict to KMT Focal' : 'Allow All Originators' }}</button>
                 </div>
 
                 <!-- ── Search ────────────────────────────────────────────────── -->
@@ -416,7 +446,7 @@ const clearSearch = () => { search.value = ''; };
                                             :class="u.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'"
                                         >{{ u.isActive ? 'Active' : 'Inactive' }}</span>
                                         <span
-                                            v-if="u.role !== 'rd' && u.role !== 'admin' && u.canLoginWeekends"
+                                            v-if="u.role !== 'sds' && u.role !== 'admin' && u.canLoginWeekends"
                                             class="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800"
                                             title="Can log in on weekends"
                                         >Weekends OK</span>
@@ -429,7 +459,7 @@ const clearSearch = () => { search.value = ''; };
                                             class="text-sm font-medium text-blue-600 hover:underline"
                                         >Edit</Link>
                                         <button
-                                            v-if="u.role === 'rd' || u.role === 'ard'"
+                                            v-if="u.role === 'sds' || u.role === 'asds'"
                                             type="button"
                                             :disabled="getMagicLinkForm(u.id).processing"
                                             class="text-sm font-medium text-indigo-600 hover:underline disabled:opacity-50"
@@ -450,7 +480,7 @@ const clearSearch = () => { search.value = ''; };
                                             @click="toggleActive(u.id, u.name, u.isActive)"
                                         >{{ u.isActive ? 'Deactivate' : 'Activate' }}</button>
                                         <button
-                                            v-if="u.role !== 'rd' && u.role !== 'admin'"
+                                            v-if="u.role !== 'sds' && u.role !== 'admin'"
                                             type="button"
                                             :disabled="getToggleWeekendAccessForm(u.id).processing"
                                             class="text-sm font-medium hover:underline disabled:opacity-50"

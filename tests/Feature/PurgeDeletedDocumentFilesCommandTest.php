@@ -31,7 +31,7 @@ class PurgeDeletedDocumentFilesCommandTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 

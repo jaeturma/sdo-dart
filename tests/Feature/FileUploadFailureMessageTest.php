@@ -68,9 +68,9 @@ class FileUploadFailureMessageTest extends TestCase
 
     public function test_incoming_submission_shows_a_friendly_message_when_php_rejects_the_upload(): void
     {
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $ord->id]);
-        $secretary = User::factory()->create(['division_id' => $ordp->id]);
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $osds->id]);
+        $secretary = User::factory()->create(['division_id' => $osdsp->id]);
         $secretary->assignRole('secretary');
 
         $this->actingAs($secretary)

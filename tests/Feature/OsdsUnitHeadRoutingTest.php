@@ -16,23 +16,23 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * A unit head whose division is flagged allow_rd_direct_routing is routed to
- * directly by the RD the same way a division chief is — so they need the
+ * A unit head whose division is flagged allow_sds_direct_routing is routed to
+ * directly by the SDS the same way a division chief is — so they need the
  * same "may forward this to my own staff" ability a division chief gets,
  * once they've acknowledged it. ICTU is used throughout this file as an
- * *example* of such a division (it happens to sit under ORD, but the flag
+ * *example* of such a division (it happens to sit under OSDS, but the flag
  * — not its parent's code — is what grants the ability; see
- * DynamicDirectRoutableUnitHeadTest for a non-ORD example). A unit head
+ * DynamicDirectRoutableUnitHeadTest for a non-OSDS example). A unit head
  * whose division isn't flagged (e.g. Procurement Unit under Administrative
- * Division) is never offered as an RD routing target and doesn't get this
+ * Division) is never offered as an SDS routing target and doesn't get this
  * ability — for them a routing round always treats them as staff, a
  * terminal recipient.
  */
-class OrdUnitHeadRoutingTest extends TestCase
+class OsdsUnitHeadRoutingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
+    private Division $osds;
 
     private Division $ictu;
 
@@ -40,7 +40,7 @@ class OrdUnitHeadRoutingTest extends TestCase
 
     private Division $recordsSection;
 
-    private User $rd;
+    private User $sds;
 
     private User $ictuHead;
 
@@ -50,17 +50,17 @@ class OrdUnitHeadRoutingTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ictu = Division::create(['name' => 'Information and Communications Technology Unit', 'code' => 'ICTU', 'parent_id' => $this->ord->id, 'allow_rd_direct_routing' => true]);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->ictu = Division::create(['name' => 'Information and Communications Technology Unit', 'code' => 'ICTU', 'parent_id' => $this->osds->id, 'allow_sds_direct_routing' => true]);
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->recordsSection = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->recordsSection = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
-        $this->rd = User::factory()->create(['division_id' => $this->ord->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $this->osds->id]);
+        $this->sds->assignRole('sds');
 
         $this->ictuHead = User::factory()->create(['division_id' => $this->ictu->id]);
         $this->ictuHead->assignRole('unit_head');
@@ -69,13 +69,13 @@ class OrdUnitHeadRoutingTest extends TestCase
     private function routeDocumentToIctuHead(): Document
     {
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Test memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/memo.pdf', 'file_hash' => hash('sha256', 'memo'),
             'status' => DocumentStatus::Received,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(),
         ]);
 
@@ -89,18 +89,18 @@ class OrdUnitHeadRoutingTest extends TestCase
         return $document;
     }
 
-    public function test_rd_routing_form_offers_ord_unit_heads_and_chiefs_but_not_ad_sub_unit_heads(): void
+    public function test_sds_routing_form_offers_osds_unit_heads_and_chiefs_but_not_ad_sub_unit_heads(): void
     {
         $recordsHead = User::factory()->create(['division_id' => $this->recordsSection->id]);
         $recordsHead->assignRole('unit_head');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'Fresh memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'Fresh memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/fresh.pdf', 'file_hash' => hash('sha256', 'fresh'),
             'status' => DocumentStatus::Received,
         ]);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertInertia(fn ($page) => $page
                 ->where('users', fn ($users) => collect($users)->pluck('id')->contains($this->ictuHead->id)
@@ -226,19 +226,19 @@ class OrdUnitHeadRoutingTest extends TestCase
             ));
     }
 
-    public function test_a_unit_head_outside_ord_does_not_get_the_deferred_routing_ability(): void
+    public function test_a_unit_head_outside_osds_does_not_get_the_deferred_routing_ability(): void
     {
         $recordsHead = User::factory()->create(['division_id' => $this->recordsSection->id]);
         $recordsHead->assignRole('unit_head');
 
         $document = Document::create([
-            'type' => DocumentType::Incoming, 'title' => 'AD memo', 'uploaded_by' => $this->rd->id,
+            'type' => DocumentType::Incoming, 'title' => 'AD memo', 'uploaded_by' => $this->sds->id,
             'file_path' => 'incoming/2026/07/ad.pdf', 'file_hash' => hash('sha256', 'ad'),
             'status' => DocumentStatus::Received,
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
             'is_rush' => false, 'routed_at' => now(),
         ]);
 

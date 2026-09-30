@@ -14,7 +14,7 @@ use Tests\TestCase;
 /**
  * Records Section staff now need their own PNPKI signing credential to
  * attach a release stamp — this widens SigningCredentialPolicy::upload()
- * (previously rd/ard/division_chief only) to also include Records Section
+ * (previously sds/asds/division_chief only) to also include Records Section
  * division membership, without opening it up to everyone.
  */
 class SigningCredentialAccessTest extends TestCase
@@ -30,12 +30,12 @@ class SigningCredentialAccessTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'rd'] as $role) {
+        foreach (['admin', 'originator', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
     }
 
     public function test_records_section_user_can_view_and_upload_their_own_credential(): void
@@ -62,14 +62,14 @@ class SigningCredentialAccessTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_rd_can_still_view_and_upload(): void
+    public function test_sds_can_still_view_and_upload(): void
     {
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
 
-        $this->assertTrue($rd->can('upload', UserSigningCredential::class));
+        $this->assertTrue($sds->can('upload', UserSigningCredential::class));
 
-        $this->actingAs($rd)
+        $this->actingAs($sds)
             ->get(route('my-signature.show'))
             ->assertOk();
     }

@@ -19,7 +19,7 @@ defineProps({
             <header class="flex items-center justify-between px-6 py-4 lg:px-12">
                 <div class="flex items-center gap-3">
                     <div class="shrink-0 rounded-full bg-white p-0.5">
-                        <img src="/images/deped-xi-seal.png" class="h-10 w-10" alt="Schools Division Office Seal" />
+                        <img src="/images/office-seal.png" class="h-10 w-10" alt="Schools Division Office Seal" />
                     </div>
                     <div class="leading-tight text-white">
                         <p class="text-xs font-medium opacity-70">Republic of the Philippines</p>

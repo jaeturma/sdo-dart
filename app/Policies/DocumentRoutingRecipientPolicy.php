@@ -52,8 +52,8 @@ class DocumentRoutingRecipientPolicy
      * reported bug this fixes).
      *
      * Permission mirrors DocumentRoutingPolicy::cancel() at the recipient
-     * level: the RD/her ORD secretary may withdraw any recipient under a
-     * routing round either of them issued (is_rd_routing), anytime,
+     * level: the SDS/her OSDS secretary may withdraw any recipient under a
+     * routing round either of them issued (is_sds_routing), anytime,
      * regardless of whether that recipient has already acknowledged or
      * completed it — same delegate relationship as the whole-routing case.
      * A division chief may only withdraw a recipient under their own
@@ -74,8 +74,8 @@ class DocumentRoutingRecipientPolicy
             return false;
         }
 
-        if ($user->hasRole('rd') || $this->isOrdSecretary($user)) {
-            return $routing->is_rd_routing;
+        if ($user->hasRole('sds') || $this->isOsdsSecretary($user)) {
+            return $routing->is_sds_routing;
         }
 
         if ($user->hasRole('division_chief')) {
@@ -87,17 +87,17 @@ class DocumentRoutingRecipientPolicy
     }
 
     /**
-     * The RD's own secretary — same identification as
-     * DocumentPolicy::isOrdSecretary() (kept as a separate private copy here
-     * rather than shared, matching how isOrdSecretary() is duplicated
+     * The SDS's own secretary — same identification as
+     * DocumentPolicy::isOsdsSecretary() (kept as a separate private copy here
+     * rather than shared, matching how isOsdsSecretary() is duplicated
      * per-class elsewhere in this codebase rather than shared).
      */
-    private function isOrdSecretary(User $user): bool
+    private function isOsdsSecretary(User $user): bool
     {
         if (! $user->hasRole('secretary') || $user->division_id === null) {
             return false;
         }
 
-        return $user->division?->code === 'ORD' || $user->division?->parent?->code === 'ORD';
+        return $user->division?->code === 'OSDS' || $user->division?->parent?->code === 'OSDS';
     }
 }

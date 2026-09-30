@@ -30,7 +30,17 @@ class UpdateDivisionRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:20', Rule::unique('divisions', 'code')->ignore($division->id)],
+            'code' => [
+                'nullable', 'string', 'max:20', Rule::unique('divisions', 'code')->ignore($division->id),
+                function ($attribute, $value, $fail) use ($division) {
+                    // Renaming this code (e.g. to "OSDS") would silently
+                    // strip the SDS's secretary of her routing powers and
+                    // change OSDS units' review chain — see Division::isOsds().
+                    if ($division->isOsds() && $value !== $division->code) {
+                        $fail("This office's code is used internally to identify the Office of the SDS and can't be changed.");
+                    }
+                },
+            ],
             'parent_id' => [
                 'nullable', 'integer', 'exists:divisions,id',
                 Rule::notIn([$division->id]),
@@ -45,7 +55,8 @@ class UpdateDivisionRequest extends FormRequest
                     }
                 },
             ],
-            'allow_rd_direct_routing' => ['sometimes', 'boolean'],
+            'allow_sds_direct_routing' => ['sometimes', 'boolean'],
+            'is_records_section' => ['sometimes', 'boolean'],
         ];
     }
 }

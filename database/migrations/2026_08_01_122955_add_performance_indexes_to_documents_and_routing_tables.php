@@ -14,7 +14,7 @@ return new class extends Migration
         });
 
         Schema::table('document_routings', function (Blueprint $table) {
-            $table->index('is_rd_routing');
+            $table->index('is_sds_routing');
             $table->index('cancelled_at');
         });
 
@@ -31,7 +31,7 @@ return new class extends Migration
         });
 
         Schema::table('document_routings', function (Blueprint $table) {
-            $table->dropIndex(['is_rd_routing']);
+            $table->dropIndex(['is_sds_routing']);
             $table->dropIndex(['cancelled_at']);
         });
 

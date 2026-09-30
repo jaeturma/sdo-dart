@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
  * routing form's candidate list) and RouteDocumentRequest (validates a
  * submitted routing request's recipients) so the two can never drift apart
  * — previously only the division-chief/unit-head branch was validated
- * server-side, letting an RD/ARD/secretary request route to an arbitrary
+ * server-side, letting an SDS/ASDS/secretary request route to an arbitrary
  * user id with no role/division/active-status check at all.
  */
 class RoutingCandidateResolver
@@ -24,12 +24,12 @@ class RoutingCandidateResolver
     {
         if ($user->hasRole('division_chief') || self::isDirectRoutableUnitHead($user)) {
             // A division chief (or a unit head whose division has been
-            // flagged allow_rd_direct_routing — e.g. ICTU/LU/PAU, or any
+            // flagged allow_sds_direct_routing — e.g. ICTU/LU/PAU, or any
             // other unit an admin has opted in via Office Management, who
-            // the RD routes to directly the same way she routes to chiefs)
+            // the SDS routes to directly the same way she routes to chiefs)
             // may only forward to their own staff (their division plus any
             // of its sub-units — a no-op for a unit head, whose division has
-            // none), not to peer chiefs or RD/ARD — and only to staff whose
+            // none), not to peer chiefs or SDS/ASDS — and only to staff whose
             // account is currently active, since a deactivated user can't
             // log in to act on it anyway.
             return User::with(['division:id,name,code', 'roles'])
@@ -41,17 +41,17 @@ class RoutingCandidateResolver
                 ->get(['id', 'name', 'division_id']);
         }
 
-        // The ARD — offered alongside chiefs/unit heads so the RD (or her ORD
+        // The ASDS — offered alongside chiefs/unit heads so the SDS (or her OSDS
         // secretary) can route directly to her too. Placed first in the list
         // since she outranks every other candidate here. Excluded for the
-        // ARD's own routing turn via the `id != $user->id` filter, same as
+        // ASDS's own routing turn via the `id != $user->id` filter, same as
         // everyone else in this list. `is_active` is required on every branch
-        // here — a deactivated ARD/chief/unit-head can't log in to act on a
+        // here — a deactivated ASDS/chief/unit-head can't log in to act on a
         // routing assigned to them.
-        $ard = User::with(['division:id,name,code', 'roles'])
+        $asds = User::with(['division:id,name,code', 'roles'])
             ->where('id', '!=', $user->id)
             ->where('is_active', true)
-            ->whereHas('roles', fn ($q) => $q->where('name', 'ard'))
+            ->whereHas('roles', fn ($q) => $q->where('name', 'asds'))
             ->get(['id', 'name', 'division_id']);
 
         // Division chiefs — sorted by prescribed division order
@@ -64,7 +64,7 @@ class RoutingCandidateResolver
             ->values();
 
         // Unit heads whose division has been admin-flagged
-        // allow_rd_direct_routing (Office Management — see
+        // allow_sds_direct_routing (Office Management — see
         // DivisionController) — sorted alphabetically by division name since
         // there's no prescribed fixed order the way CHIEF_ORDER has for this
         // admin-extensible set.
@@ -72,20 +72,20 @@ class RoutingCandidateResolver
             ->where('id', '!=', $user->id)
             ->where('is_active', true)
             ->whereHas('roles', fn ($q) => $q->where('name', 'unit_head'))
-            ->whereHas('division', fn ($q) => $q->where('allow_rd_direct_routing', true))
+            ->whereHas('division', fn ($q) => $q->where('allow_sds_direct_routing', true))
             ->get(['id', 'name', 'division_id'])
             ->sortBy(fn ($u) => $u->division?->name)
             ->values();
 
-        $candidates = $ard->merge($chiefs)->merge($unitHeads);
+        $candidates = $asds->merge($chiefs)->merge($unitHeads);
 
-        // Staff temporarily detailed to the Regional Office (e.g. from a
-        // School Division Office) who don't fit anywhere in the division
-        // hierarchy — offered only to the RD and her ORD secretary, not the
-        // ARD, who isn't part of this shared "acts as the RD" pool anywhere
+        // Staff temporarily detailed to this Schools Division Office (e.g. from a
+        // school or another division office) who don't fit anywhere in the division
+        // hierarchy — offered only to the SDS and her OSDS secretary, not the
+        // ASDS, who isn't part of this shared "acts as the SDS" pool anywhere
         // else in this codebase either (see DocumentPolicy::route()'s
-        // is_rd_routing treatment).
-        if ($user->hasRole('rd') || self::isOrdSecretary($user)) {
+        // is_sds_routing treatment).
+        if ($user->hasRole('sds') || self::isOsdsSecretary($user)) {
             $detailedStaff = User::with(['division:id,name,code', 'roles'])
                 ->where('id', '!=', $user->id)
                 ->where('is_active', true)
@@ -100,12 +100,12 @@ class RoutingCandidateResolver
     }
 
     /**
-     * The RD's own secretary — same identification as
-     * DocumentPolicy::isOrdSecretary() (kept as a separate private copy here
+     * The SDS's own secretary — same identification as
+     * DocumentPolicy::isOsdsSecretary() (kept as a separate private copy here
      * rather than shared, matching how isDirectRoutableUnitHead() below is
      * also duplicated per-class rather than shared).
      */
-    private static function isOrdSecretary(User $user): bool
+    private static function isOsdsSecretary(User $user): bool
     {
         if (! $user->hasRole('secretary') || $user->division_id === null) {
             return false;
@@ -113,15 +113,15 @@ class RoutingCandidateResolver
 
         $division = $user->division;
 
-        return $division?->code === 'ORD' || $division?->parent?->code === 'ORD';
+        return $division?->code === 'OSDS' || $division?->parent?->code === 'OSDS';
     }
 
     /**
      * A unit head whose division has been admin-flagged
-     * allow_rd_direct_routing (e.g. ICTU/LU/PAU, or any other unit opted in
+     * allow_sds_direct_routing (e.g. ICTU/LU/PAU, or any other unit opted in
      * via Office Management) — same identification as
      * DocumentPolicy::isDirectRoutableUnitHead() (kept as a separate private
-     * copy here rather than shared, matching how isOrdSecretary() is
+     * copy here rather than shared, matching how isOsdsSecretary() is
      * duplicated per-class elsewhere in this codebase rather than shared).
      */
     private static function isDirectRoutableUnitHead(User $user): bool
@@ -130,6 +130,6 @@ class RoutingCandidateResolver
             return false;
         }
 
-        return (bool) $user->division?->allow_rd_direct_routing;
+        return (bool) $user->division?->allow_sds_direct_routing;
     }
 }

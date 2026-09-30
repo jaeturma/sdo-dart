@@ -18,26 +18,45 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 /**
- * Forwards an incoming document to Records Section, exactly the way ORD
- * Proper uploads auto-forward on intake (IncomingDocumentController::store()).
- * Extracted so the same logic can also be used to retroactively fix
- * documents that were uploaded before a division/user misconfiguration was
- * corrected (see documents:diagnose-auto-forward --apply) — both callers
- * must stay identical, or the retroactive fix would produce routings that
- * behave subtly differently from a normal upload.
+ * Forwards an incoming document to Records Section, exactly the way the
+ * SDS's secretary's uploads auto-forward on intake
+ * (IncomingDocumentController::store()). Extracted so the same logic can
+ * also be used to retroactively fix documents that were uploaded before a
+ * Records Section was designated (see documents:diagnose-auto-forward
+ * --apply) — both callers must stay identical, or the retroactive fix would
+ * produce routings that behave subtly differently from a normal upload.
  *
- * Returns false (and logs a warning) if the Records Section division can't
- * be found, so the caller can surface that instead of silently leaving the
- * document unrouted.
+ * Returns false (and logs a warning) if no office is designated as the
+ * Records Section, so the caller can surface that instead of silently
+ * leaving the document unrouted.
  */
 class IncomingAutoForwarder
 {
+    /**
+     * Whether an incoming upload by this user auto-forwards a courtesy copy
+     * to Records Section: the SDS's own secretary (secretary role, in OSDS
+     * or one of its sub-offices — the same identification as
+     * DocumentPolicy::isOsdsSecretary()). Keyed on her rather than on a
+     * specially-coded "OSDS Proper" office, which a fresh SDO install has no
+     * reason to create.
+     */
+    public static function appliesTo(User $uploader): bool
+    {
+        if (! $uploader->hasRole('secretary') || $uploader->division_id === null) {
+            return false;
+        }
+
+        $division = $uploader->division;
+
+        return $division?->code === 'OSDS' || $division?->parent?->code === 'OSDS';
+    }
+
     public static function forward(Document $document, User $user, ?Request $request = null): bool
     {
         $recordsId = Division::recordsSectionId();
 
         if (! $recordsId) {
-            Log::warning('Auto-forward on incoming document intake failed: no division with code "RS" (Records Section) found.', [
+            Log::warning('Auto-forward on incoming document intake failed: no office is designated as the Records Section.', [
                 'document_id' => $document->id,
                 'uploaded_by' => $user->id,
             ]);
@@ -45,7 +64,7 @@ class IncomingAutoForwarder
             Notification::send(User::role('admin')->get(), new DocumentEvent(
                 $document,
                 'Auto-forward failed',
-                "\"{$document->title}\" could not be auto-forwarded — no division is coded \"RS\" (Records Section). Check Division setup.",
+                "\"{$document->title}\" could not be forwarded to Records Section — no office is designated as the Records Section. Designate one under Offices.",
                 'document.auto_forward_failed',
             ));
 

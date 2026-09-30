@@ -34,9 +34,9 @@ class UpdateUserRequest extends FormRequest
             'name'        => ['required', 'string', 'max:255'],
             'email'       => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             'password'    => ['nullable', 'string', Password::default(), 'confirmed'],
-            'role'        => ['required', Rule::in(['admin', 'rd', 'ard', 'division_chief', 'unit_head', 'originator', 'secretary', 'detailed_staff'])],
+            'role'        => ['required', Rule::in(['admin', 'sds', 'asds', 'division_chief', 'unit_head', 'originator', 'secretary', 'detailed_staff'])],
             'kmt_focal'   => ['sometimes', 'boolean'],
-            // 'detailed_staff' isn't tied to any Regional Office division —
+            // 'detailed_staff' isn't tied to any Schools Division Office division —
             // see RoleAndDivisionSeeder's comment on that role.
             'division_id' => [Rule::requiredIf(fn () => $this->input('role') !== 'detailed_staff'), 'nullable', 'integer', 'exists:divisions,id'],
         ];

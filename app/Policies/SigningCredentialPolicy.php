@@ -37,7 +37,7 @@ class SigningCredentialPolicy
      */
     public function upload(User $user): bool
     {
-        return $user->hasAnyRole(['rd', 'ard', 'division_chief'])
+        return $user->hasAnyRole(['sds', 'asds', 'division_chief'])
             || ($user->division_id !== null && $user->division_id === Division::recordsSectionId());
     }
 

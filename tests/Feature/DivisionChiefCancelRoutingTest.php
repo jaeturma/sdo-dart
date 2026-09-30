@@ -20,7 +20,7 @@ class DivisionChiefCancelRoutingTest extends TestCase
     use RefreshDatabase;
 
     private Division $ad;
-    private User $rd;
+    private User $sds;
     private User $chief;
 
     protected function setUp(): void
@@ -29,14 +29,14 @@ class DivisionChiefCancelRoutingTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->ad->id]);
         $this->chief->assignRole('division_chief');
@@ -47,7 +47,7 @@ class DivisionChiefCancelRoutingTest extends TestCase
         $document = Document::create([
             'type'        => DocumentType::Incoming,
             'title'       => 'Test memo',
-            'uploaded_by' => $this->rd->id,
+            'uploaded_by' => $this->sds->id,
             'file_path'   => 'incoming/2026/07/memo.pdf',
             'file_hash'   => hash('sha256', 'memo'),
             'status'      => DocumentStatus::Received,
@@ -55,7 +55,7 @@ class DivisionChiefCancelRoutingTest extends TestCase
 
         $routing = DocumentRouting::create([
             'document_id' => $document->id,
-            'routed_by'   => $this->rd->id,
+            'routed_by'   => $this->sds->id,
             'is_rush'     => false,
             'routed_at'   => now(),
         ]);
@@ -248,9 +248,9 @@ class DivisionChiefCancelRoutingTest extends TestCase
         $document->refresh()->load('routings.recipients');
         $routing = $document->routings->last();
 
-        $this->assertFalse($this->rd->can('cancel', $routing));
+        $this->assertFalse($this->sds->can('cancel', $routing));
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->delete(route('documents.routings.cancel', [$document, $routing]))
             ->assertForbidden();
     }

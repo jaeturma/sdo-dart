@@ -23,7 +23,7 @@ class OutgoingDocumentCreationTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'kmt_focal'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'kmt_focal'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
     }
@@ -49,13 +49,13 @@ class OutgoingDocumentCreationTest extends TestCase
         $this->assertDatabaseHas('documents', ['title' => 'Chief memo', 'uploaded_by' => $chief->id]);
 
         $document = Document::firstWhere('title', 'Chief memo');
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
     }
 
-    public function test_ord_unit_head_upload_is_auto_forwarded_to_ard(): void
+    public function test_osds_unit_head_upload_is_auto_forwarded_to_asds(): void
     {
-        $ord  = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $ictu = Division::create(['name' => 'ICT Unit', 'code' => 'ICTU', 'parent_id' => $ord->id]);
+        $osds  = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $ictu = Division::create(['name' => 'ICT Unit', 'code' => 'ICTU', 'parent_id' => $osds->id]);
         $unitHead = User::factory()->create(['division_id' => $ictu->id]);
         $unitHead->assignRole('unit_head');
 
@@ -66,14 +66,14 @@ class OutgoingDocumentCreationTest extends TestCase
         ])->assertRedirect();
 
         $document = Document::firstWhere('title', 'Unit head memo');
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
     }
 
-    public function test_non_ord_unit_head_upload_goes_to_their_division_chief_first(): void
+    public function test_non_osds_unit_head_upload_goes_to_their_division_chief_first(): void
     {
         // Administrative Division has both a unit head and a division chief —
-        // unlike ORD's internal sub-units, this unit head's own upload should
-        // NOT skip straight to ARD; it needs their chief's review first.
+        // unlike OSDS's internal sub-units, this unit head's own upload should
+        // NOT skip straight to ASDS; it needs their chief's review first.
         $division = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
         $unitHead = User::factory()->create(['division_id' => $division->id]);
         $unitHead->assignRole('unit_head');
@@ -93,13 +93,13 @@ class OutgoingDocumentCreationTest extends TestCase
     }
 
     /**
-     * Reproduces the real production structure that test_non_ord_unit_head
+     * Reproduces the real production structure that test_non_osds_unit_head
      * _upload_goes_to_their_division_chief_first above did NOT: Administrative
      * Division has its own chief, but the unit head isn't in that same
      * division at all — they head a *sub-unit* (e.g. Procurement Unit) whose
      * parent_id points at Administrative Division. The chief who actually
      * reviews sits one level up. This was reported as a real bug: these
-     * documents were skipping straight to ARD/RD instead of reaching the
+     * documents were skipping straight to ASDS/SDS instead of reaching the
      * chief, because the chief lookup only checked the unit head's own
      * division, never the parent.
      */
@@ -142,7 +142,79 @@ class OutgoingDocumentCreationTest extends TestCase
             ));
     }
 
-    public function test_non_ord_unit_head_upload_skips_to_ard_when_their_division_has_no_chief(): void
+    /**
+     * OSDS has no division chief, so a staff member in an OSDS sub-office
+     * with no unit head of its own would otherwise sit at `Submitted`
+     * forever with nobody able to review it.
+     */
+    public function test_originator_with_no_unit_head_or_chief_above_them_goes_straight_to_asds(): void
+    {
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $legal = Division::create(['name' => 'Legal Unit', 'parent_id' => $osds->id]);
+        $originator = User::factory()->create(['division_id' => $legal->id]);
+        $originator->assignRole(['originator', 'kmt_focal']);
+
+        $this->actingAs($originator)->post('/documents/outgoing', [
+            'title' => 'Legal opinion',
+            'file'  => UploadedFile::fake()->createWithContent('memo.pdf', '%PDF-1.4 fake pdf content for tests'),
+            'requires_release' => true,
+        ])->assertRedirect();
+
+        $document = Document::firstWhere('title', 'Legal opinion');
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
+    }
+
+    public function test_originator_with_no_reviewer_above_them_goes_to_sds_when_asds_unavailable(): void
+    {
+        \App\Models\AsdsAvailabilitySetting::toggle();
+
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $originator = User::factory()->create(['division_id' => $osds->id]);
+        $originator->assignRole(['originator', 'kmt_focal']);
+
+        $this->actingAs($originator)->post('/documents/outgoing', [
+            'title' => 'OSDS staff memo',
+            'file'  => UploadedFile::fake()->createWithContent('memo.pdf', '%PDF-1.4 fake pdf content for tests'),
+            'requires_release' => true,
+        ])->assertRedirect();
+
+        $this->assertSame(DocumentStatus::PendingSdsReview, Document::firstWhere('title', 'OSDS staff memo')->status);
+    }
+
+    /**
+     * A unit head and a chief can share one top-level division (e.g. both
+     * assigned directly to CID) — the unit head's approval must still reach
+     * that chief rather than skipping them because the division has no parent.
+     */
+    public function test_unit_head_approval_reaches_a_chief_in_the_same_top_level_division(): void
+    {
+        $cid = Division::create(['name' => 'Curriculum Implementation Division', 'code' => 'CID']);
+        $originator = User::factory()->create(['division_id' => $cid->id]);
+        $originator->assignRole(['originator', 'kmt_focal']);
+        $unitHead = User::factory()->create(['division_id' => $cid->id]);
+        $unitHead->assignRole('unit_head');
+        $chief = User::factory()->create(['division_id' => $cid->id]);
+        $chief->assignRole('division_chief');
+
+        $this->actingAs($originator)->post('/documents/outgoing', [
+            'title' => 'CID memo',
+            'file'  => UploadedFile::fake()->createWithContent('memo.pdf', '%PDF-1.4 fake pdf content for tests'),
+            'requires_release' => true,
+        ])->assertRedirect();
+
+        $document = Document::firstWhere('title', 'CID memo');
+        $this->assertSame(DocumentStatus::PendingUnitHeadReview, $document->status);
+
+        $this->actingAs($unitHead)
+            ->post(route('documents.reviews.store', $document), ['action' => 'approved_forwarded'])
+            ->assertRedirect();
+
+        $document->refresh();
+        $this->assertSame(DocumentStatus::PendingDivisionChiefReview, $document->status);
+        $this->assertTrue($chief->can('review', $document));
+    }
+
+    public function test_non_osds_unit_head_upload_skips_to_asds_when_their_division_has_no_chief(): void
     {
         $division = Division::create(['name' => 'Small Standalone Unit', 'code' => 'SSU']);
         $unitHead = User::factory()->create(['division_id' => $division->id]);
@@ -155,7 +227,7 @@ class OutgoingDocumentCreationTest extends TestCase
         ])->assertRedirect();
 
         $document = Document::firstWhere('title', 'Standalone unit head memo');
-        $this->assertSame(DocumentStatus::PendingArdReview, $document->status);
+        $this->assertSame(DocumentStatus::PendingAsdsReview, $document->status);
     }
 
     public function test_originator_upload_still_goes_through_unit_head_review_when_one_exists(): void

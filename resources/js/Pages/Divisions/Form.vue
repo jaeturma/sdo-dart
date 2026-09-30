@@ -4,17 +4,20 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 const props = defineProps({
-    division:      Object,  // null = create mode
-    parentOptions: Array,   // flat ordered list with depth
+    division:              Object,  // null = create mode
+    parentOptions:         Array,   // flat ordered list with depth
+    currentRecordsSection: String,  // name of another office already designated, if any
 });
 
 const isEdit = computed(() => props.division !== null);
+const isOsds = computed(() => props.division?.is_osds === true);
 
 const form = useForm({
     name:                     props.division?.name                     ?? '',
     code:                     props.division?.code                     ?? '',
     parent_id:                props.division?.parent_id                ?? '',
-    allow_rd_direct_routing:  props.division?.allow_rd_direct_routing  ?? false,
+    allow_sds_direct_routing:  props.division?.allow_sds_direct_routing  ?? false,
+    is_records_section:       props.division?.is_records_section       ?? false,
 });
 
 const submit = () => {
@@ -69,11 +72,15 @@ const submit = () => {
                                     v-model="form.code"
                                     type="text"
                                     maxlength="20"
-                                    class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 uppercase focus:border-blue-500 focus:ring-blue-500"
-                                    placeholder="e.g. CLMD"
+                                    :disabled="isOsds"
+                                    class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 uppercase focus:border-blue-500 focus:ring-blue-500 disabled:cursor-not-allowed disabled:text-gray-500"
+                                    placeholder="e.g. CID"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">
-                                    Optional, but several system behaviors (routing, control numbers) key off specific codes like ORD/ORDP/RS — leave blank unless you know this office needs one.
+                                <p v-if="isOsds" class="mt-1 text-xs text-gray-500">
+                                    Fixed — the system uses this code to identify the Office of the SDS, so it can't be changed.
+                                </p>
+                                <p v-else class="mt-1 text-xs text-gray-500">
+                                    Optional. Used as the office prefix in outgoing control numbers (e.g. OUTGOING-CID-2026-09-001); a sub-office without its own code uses its parent office's.
                                 </p>
                                 <p v-if="form.errors.code" class="mt-1 text-sm text-red-600">{{ form.errors.code }}</p>
                             </div>
@@ -102,13 +109,33 @@ const submit = () => {
                             <!-- Allow SDS to route directly to this unit's head -->
                             <div>
                                 <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 text-sm has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                    <input type="checkbox" v-model="form.allow_rd_direct_routing" class="mt-0.5" />
+                                    <input type="checkbox" v-model="form.allow_sds_direct_routing" class="mt-0.5" />
                                     <span>
                                         <span class="block font-medium text-gray-900">Allow SDS to Route Directly to This Unit's Head</span>
                                         <span class="block text-gray-500">When enabled, the SDS (and her secretary) can route an incoming document straight to this office's unit head, the same way she routes to a division chief — not only through the parent office's chief first. Only meaningful for a sub-office with its own unit head (e.g. a unit under CID or SGOD).</span>
                                     </span>
                                 </label>
-                                <p v-if="form.errors.allow_rd_direct_routing" class="mt-1 text-sm text-red-600">{{ form.errors.allow_rd_direct_routing }}</p>
+                                <p v-if="form.errors.allow_sds_direct_routing" class="mt-1 text-sm text-red-600">{{ form.errors.allow_sds_direct_routing }}</p>
+                            </div>
+
+                            <!-- Records Section designation -->
+                            <div>
+                                <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 text-sm has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" v-model="form.is_records_section" class="mt-0.5" />
+                                    <span>
+                                        <span class="block font-medium text-gray-900">This Office Is the Records Section</span>
+                                        <span class="block text-gray-500">Staff assigned to this office apply the release stamp to signed outgoing documents, receive the SDS secretary's incoming uploads for filing, can upload incoming documents, and can view the daily Incoming Documents Log. Only one office can be the Records Section.</span>
+                                        <span
+                                            v-if="currentRecordsSection && form.is_records_section"
+                                            class="mt-1 block font-medium text-amber-700"
+                                        >Saving moves the designation here from "{{ currentRecordsSection }}".</span>
+                                        <span
+                                            v-else-if="currentRecordsSection"
+                                            class="mt-1 block text-gray-500"
+                                        >Currently designated: {{ currentRecordsSection }}.</span>
+                                    </span>
+                                </label>
+                                <p v-if="form.errors.is_records_section" class="mt-1 text-sm text-red-600">{{ form.errors.is_records_section }}</p>
                             </div>
 
                         </div>

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // One `document_signatures` row can now have one or more placements —
-        // the secretary may stamp the RD's signature more than once on a
+        // the secretary may stamp the SDS's signature more than once on a
         // page, and/or across multiple pages, all backed by the single real
         // PKCS#7 signature already recorded on the parent row (see
         // App\Services\DocumentSigner — one crypto signature, N visual

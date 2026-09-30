@@ -19,7 +19,7 @@ use Tests\TestCase;
  * A follow-up step after release: Records Section confirms they downloaded
  * the released PDF and emailed it out. Recorded in the review history
  * (transaction history) for the originating office to see, and notifies the
- * uploader plus their supervisor (division chief, or unit head for an ORD
+ * uploader plus their supervisor (division chief, or unit head for an OSDS
  * sub-unit with no chief of its own).
  */
 class MarkEmailedTest extends TestCase
@@ -43,7 +43,7 @@ class MarkEmailedTest extends TestCase
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
         $this->recordsClerk = User::factory()->create(['division_id' => $this->records->id]);
         $this->recordsClerk->assignRole('originator');
@@ -126,8 +126,8 @@ class MarkEmailedTest extends TestCase
     {
         Notification::fake();
 
-        $ord  = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $ictu = Division::create(['name' => 'ICT Unit', 'parent_id' => $ord->id]);
+        $osds  = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $ictu = Division::create(['name' => 'ICT Unit', 'parent_id' => $osds->id]);
         $ictuUploader = User::factory()->create(['division_id' => $ictu->id]);
         $ictuUploader->assignRole('originator');
         $unitHead = User::factory()->create(['division_id' => $ictu->id]);

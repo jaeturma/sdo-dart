@@ -20,8 +20,8 @@ use Tests\TestCase;
  * A general QC gate for the secretary: any Approved document can be sent
  * back to its owner for a physical/formatting problem (missing pages, wrong
  * format) found while preparing to sign it — unlike returnToOwner() (see
- * SecretaryReturnToOwnerTest), this has no dependency on the RD's review
- * history at all, and any secretary (not just the RD's own ORD secretary)
+ * SecretaryReturnToOwnerTest), this has no dependency on the SDS's review
+ * history at all, and any secretary (not just the SDS's own OSDS secretary)
  * may use it, matching sign()'s scope. Deliberately kept as a separate
  * action from returnToOwner() rather than merged into it.
  */
@@ -30,7 +30,7 @@ class SecretaryReturnForCorrectionTest extends TestCase
     use RefreshDatabase;
 
     private Division $division;
-    private User $rd;
+    private User $sds;
     private User $secretary;
     private User $originator;
 
@@ -40,14 +40,14 @@ class SecretaryReturnForCorrectionTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['originator', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->division = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->secretary = User::factory()->create();
         $this->secretary->assignRole('secretary');
@@ -65,12 +65,12 @@ class SecretaryReturnForCorrectionTest extends TestCase
             'status' => DocumentStatus::Approved,
         ]);
 
-        // A normal, clean approval — no RD remarks at all — confirming this
+        // A normal, clean approval — no SDS remarks at all — confirming this
         // action doesn't depend on review history the way returnToOwner() does.
         DocumentReview::create([
             'document_id' => $document->id,
-            'reviewer_id' => $this->rd->id,
-            'role_at_review' => 'rd',
+            'reviewer_id' => $this->sds->id,
+            'role_at_review' => 'sds',
             'action' => ReviewAction::ApprovedForwarded,
             'remarks' => null,
         ]);
@@ -115,7 +115,7 @@ class SecretaryReturnForCorrectionTest extends TestCase
 
     public function test_any_secretary_may_use_this_not_just_the_rds_own(): void
     {
-        // Unlike returnToOwner(), this isn't scoped to isOrdSecretary().
+        // Unlike returnToOwner(), this isn't scoped to isOsdsSecretary().
         $outsideSecretary = User::factory()->create(['division_id' => $this->division->id]);
         $outsideSecretary->assignRole('secretary');
 
@@ -128,7 +128,7 @@ class SecretaryReturnForCorrectionTest extends TestCase
     {
         $document = $this->approvedDocument();
 
-        foreach (['rd', 'ard'] as $role) {
+        foreach (['sds', 'asds'] as $role) {
             $user = User::factory()->create();
             $user->assignRole($role);
 
@@ -162,8 +162,8 @@ class SecretaryReturnForCorrectionTest extends TestCase
         ]);
         DocumentReview::create([
             'document_id' => $document->id,
-            'reviewer_id' => $this->rd->id,
-            'role_at_review' => 'rd',
+            'reviewer_id' => $this->sds->id,
+            'role_at_review' => 'sds',
             'action' => ReviewAction::ApprovedForwarded,
             'remarks' => 'Please double-check the budget figures.',
         ]);

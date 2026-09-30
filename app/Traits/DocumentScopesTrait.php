@@ -19,12 +19,12 @@ trait DocumentScopesTrait
             return $q;
         }
 
-        // RD/ARD only need visibility once a document has cleared the earlier
-        // review levels (division chief, or — for ORD's own sub-units, which
+        // SDS/ASDS only need visibility once a document has cleared the earlier
+        // review levels (division chief, or — for OSDS's own sub-units, which
         // have no division chief — the unit head instead; see
         // DocumentReviewController::nextStatusAfterUnitHead()) — documents
-        // still sitting with those reviewers aren't yet ARD's/RD's concern.
-        if ($user->hasAnyRole(['rd', 'ard'])) {
+        // still sitting with those reviewers aren't yet ASDS's/SDS's concern.
+        if ($user->hasAnyRole(['sds', 'asds'])) {
             return $q->whereNotIn('status', [
                 DocumentStatus::Draft->value,
                 DocumentStatus::Submitted->value,
@@ -72,7 +72,7 @@ trait DocumentScopesTrait
     {
         $q->where('type', DocumentType::Incoming);
 
-        if ($user->hasAnyRole(['admin', 'rd', 'ard']) || $this->isOrdSecretary($user)) {
+        if ($user->hasAnyRole(['admin', 'sds', 'asds']) || $this->isOsdsSecretary($user)) {
             return $q;
         }
 
@@ -135,18 +135,18 @@ trait DocumentScopesTrait
                 });
             }
 
-            if ($user->hasRole('ard')) {
+            if ($user->hasRole('asds')) {
                 $root->orWhere(function ($sub) use ($user) {
                     $sub->where('type', DocumentType::Outgoing->value)
-                        ->where('status', DocumentStatus::PendingArdReview->value)
+                        ->where('status', DocumentStatus::PendingAsdsReview->value)
                         ->where('uploaded_by', '!=', $user->id);
                 });
             }
 
-            if ($user->hasRole('rd')) {
+            if ($user->hasRole('sds')) {
                 $root->orWhere(function ($sub) use ($user) {
                     $sub->where('type', DocumentType::Outgoing->value)
-                        ->where('status', DocumentStatus::PendingRdReview->value)
+                        ->where('status', DocumentStatus::PendingSdsReview->value)
                         ->where('uploaded_by', '!=', $user->id);
                 });
             }
@@ -158,46 +158,46 @@ trait DocumentScopesTrait
                 });
             }
 
-            if ($user->hasAnyRole(['rd', 'ard']) || $this->isOrdSecretary($user)) {
-                // For the RD/her secretary specifically, "already routed" is
-                // shared between the two of them via the `is_rd_routing` flag
+            if ($user->hasAnyRole(['sds', 'asds']) || $this->isOsdsSecretary($user)) {
+                // For the SDS/her secretary specifically, "already routed" is
+                // shared between the two of them via the `is_sds_routing` flag
                 // (stamped at creation time — see DocumentRoutingController::store())
                 // rather than tracked by *current* user identity — the
-                // secretary routes *as* the RD, not as a separate independent
+                // secretary routes *as* the SDS, not as a separate independent
                 // channel, so a routing issued by either drops it from both
                 // of their queues, and this stays true even if she's later
-                // reassigned to a different division. ARD stays independent
+                // reassigned to a different division. ASDS stays independent
                 // — she's a genuinely independent reviewer, not a delegate,
                 // so only her own routing decision (by her own stable
                 // routed_by id) counts for her. Matches DocumentPolicy::route()'s
                 // identical exclusion.
-                $isRdOrSecretary = $user->hasRole('rd') || $this->isOrdSecretary($user);
+                $isSdsOrSecretary = $user->hasRole('sds') || $this->isOsdsSecretary($user);
 
-                $root->orWhere(function ($sub) use ($user, $isRdOrSecretary) {
+                $root->orWhere(function ($sub) use ($user, $isSdsOrSecretary) {
                     $sub->where('type', DocumentType::Incoming->value)
-                        ->where(function ($status) use ($user, $isRdOrSecretary) {
+                        ->where(function ($status) use ($user, $isSdsOrSecretary) {
                             $status->whereIn('status', [
                                 DocumentStatus::Received->value,
                                 DocumentStatus::PendingRouting->value,
                             ])
-                            // `Routed` also counts (e.g. the RD's secretary auto-forwarded
-                            // it) but only until this user (or, for the RD/secretary pair,
+                            // `Routed` also counts (e.g. the SDS's secretary auto-forwarded
+                            // it) but only until this user (or, for the SDS/secretary pair,
                             // either of them) has personally issued a routing round for it.
-                            // `is_rd_routing` is never true for the auto-forward routing
+                            // `is_sds_routing` is never true for the auto-forward routing
                             // itself — it's a system action, not a deliberate routing
                             // decision (see DocumentPolicy::route()'s matching exclusion).
-                            ->orWhere(function ($routed) use ($user, $isRdOrSecretary) {
+                            ->orWhere(function ($routed) use ($user, $isSdsOrSecretary) {
                                 $routed->where('status', DocumentStatus::Routed->value)
-                                    ->whereDoesntHave('routings', function ($r) use ($user, $isRdOrSecretary) {
-                                        if ($isRdOrSecretary) {
-                                            // A cancelled RD/secretary routing (see
+                                    ->whereDoesntHave('routings', function ($r) use ($user, $isSdsOrSecretary) {
+                                        if ($isSdsOrSecretary) {
+                                            // A cancelled SDS/secretary routing (see
                                             // DocumentRoutingPolicy::cancel()) doesn't count
                                             // as "personally issued" — cancelling it is
                                             // exactly what's meant to bring the document
                                             // back into the shared queue so either of them
                                             // can route it again. Matches DocumentPolicy::route()'s
                                             // equivalent exclusion.
-                                            $r->where('is_rd_routing', true)->whereNull('cancelled_at');
+                                            $r->where('is_sds_routing', true)->whereNull('cancelled_at');
                                         } else {
                                             $r->where('routed_by', $user->id)
                                                 ->where(fn ($r2) => $r2->whereNull('remarks')
@@ -214,8 +214,8 @@ trait DocumentScopesTrait
                     DocumentStatus::PendingUnitHeadReview->value,
                     DocumentStatus::Submitted->value,
                     DocumentStatus::PendingDivisionChiefReview->value,
-                    DocumentStatus::PendingArdReview->value,
-                    DocumentStatus::PendingRdReview->value,
+                    DocumentStatus::PendingAsdsReview->value,
+                    DocumentStatus::PendingSdsReview->value,
                     DocumentStatus::Received->value,
                     DocumentStatus::PendingRouting->value,
                 ]);
@@ -243,8 +243,8 @@ trait DocumentScopesTrait
     }
 
     /**
-     * RD-only split of forActionScope(): the outgoing-document half — items
-     * awaiting the RD's own review/approval (plus the RD's own
+     * SDS-only split of forActionScope(): the outgoing-document half — items
+     * awaiting the SDS's own review/approval (plus the SDS's own
      * returned/for-comment uploads, same as forActionScope). Reuses
      * forActionScope() rather than re-deriving its role logic, just narrowed
      * by type, so the two split lists can never drift from the combined one.
@@ -255,8 +255,8 @@ trait DocumentScopesTrait
     }
 
     /**
-     * RD-only split of forActionScope(): the incoming-document half — items
-     * awaiting the RD to route/dispatch them (or act on a routing assignment).
+     * SDS-only split of forActionScope(): the incoming-document half — items
+     * awaiting the SDS to route/dispatch them (or act on a routing assignment).
      */
     protected function forRoutingScope(Builder $q, User $user): Builder
     {
@@ -267,7 +267,7 @@ trait DocumentScopesTrait
      * Records Section's inbox of documents the secretary auto-forwarded on
      * intake that are still Pending (not yet acknowledged) — narrower than
      * the generic incomingScope, which also includes anything manually
-     * routed to their division by the RD/ARD. Identified by the fixed
+     * routed to their division by the SDS/ASDS. Identified by the fixed
      * remarks string IncomingDocumentController::autoForward() writes — the
      * only code path that ever writes it.
      */
@@ -340,12 +340,12 @@ trait DocumentScopesTrait
     }
 
     /**
-     * The RD's own secretary — same identification as
-     * DocumentPolicy::isOrdSecretary() (kept as a separate private copy here
+     * The SDS's own secretary — same identification as
+     * DocumentPolicy::isOsdsSecretary() (kept as a separate private copy here
      * rather than shared, matching how isRecordsSectionMember() above is
      * also not shared with the policy's own records-section checks).
      */
-    private function isOrdSecretary(User $user): bool
+    private function isOsdsSecretary(User $user): bool
     {
         if (! $user->hasRole('secretary') || $user->division_id === null) {
             return false;
@@ -353,7 +353,7 @@ trait DocumentScopesTrait
 
         $division = $user->division;
 
-        return $division?->code === 'ORD' || $division?->parent?->code === 'ORD';
+        return $division?->code === 'OSDS' || $division?->parent?->code === 'OSDS';
     }
 
     protected function visibleScope(Builder $q, User $user): Builder
@@ -362,13 +362,13 @@ trait DocumentScopesTrait
             return $q;
         }
 
-        // Same early-stage restriction as outgoingScope() — RD/ARD shouldn't
+        // Same early-stage restriction as outgoingScope() — SDS/ASDS shouldn't
         // see documents still with unit head/division chief here either
         // (this scope feeds the Dashboard's "Recent Documents" widget). The
-        // RD's secretary gets the same unrestricted incoming visibility (she
-        // routes in lieu of the RD) but not the outgoing bypass — she has her
+        // SDS's secretary gets the same unrestricted incoming visibility (she
+        // routes in lieu of the SDS) but not the outgoing bypass — she has her
         // own distinct outgoing-signing rules, handled in the branch below.
-        if ($user->hasAnyRole(['rd', 'ard'])) {
+        if ($user->hasAnyRole(['sds', 'asds'])) {
             return $q->where(function ($root) {
                 $root->where(function ($out) {
                     $out->where('type', DocumentType::Outgoing)
@@ -404,7 +404,7 @@ trait DocumentScopesTrait
             })->orWhere(function ($in) use ($user) {
                 $in->where('type', DocumentType::Incoming);
 
-                if ($this->isOrdSecretary($user)) {
+                if ($this->isOsdsSecretary($user)) {
                     return;
                 }
 

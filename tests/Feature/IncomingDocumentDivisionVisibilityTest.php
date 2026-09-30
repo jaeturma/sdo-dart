@@ -17,8 +17,8 @@ class IncomingDocumentDivisionVisibilityTest extends TestCase
 {
     use RefreshDatabase;
 
-    private Division $ord;
-    private Division $ordp;
+    private Division $osds;
+    private Division $osdsp;
     private Division $unrelated;
     private User $uploader;
 
@@ -28,15 +28,15 @@ class IncomingDocumentDivisionVisibilityTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $this->ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $this->ordp = Division::create(['name' => 'ORD Proper', 'code' => 'ORDP', 'parent_id' => $this->ord->id]);
+        $this->osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $this->osdsp = Division::create(['name' => 'OSDS Proper', 'code' => 'OSDSP', 'parent_id' => $this->osds->id]);
         $this->unrelated = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->uploader = User::factory()->create(['division_id' => $this->ordp->id]);
+        $this->uploader = User::factory()->create(['division_id' => $this->osdsp->id]);
         $this->uploader->assignRole('secretary');
     }
 
@@ -57,7 +57,7 @@ class IncomingDocumentDivisionVisibilityTest extends TestCase
     {
         $document = $this->makeIncomingDocument();
 
-        $colleague = User::factory()->create(['division_id' => $this->ordp->id]);
+        $colleague = User::factory()->create(['division_id' => $this->osdsp->id]);
         $colleague->assignRole('originator');
 
         $this->assertTrue($colleague->can('view', $document));
@@ -73,7 +73,7 @@ class IncomingDocumentDivisionVisibilityTest extends TestCase
     {
         $document = $this->makeIncomingDocument();
 
-        $parentDivisionUser = User::factory()->create(['division_id' => $this->ord->id]);
+        $parentDivisionUser = User::factory()->create(['division_id' => $this->osds->id]);
         $parentDivisionUser->assignRole('unit_head');
 
         $this->assertTrue($parentDivisionUser->can('view', $document));

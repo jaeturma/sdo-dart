@@ -10,7 +10,7 @@ import { Link } from '@inertiajs/vue3';
             <div class="flex items-center gap-4">
                 <Link href="/">
                     <div class="rounded-full bg-white p-1 shadow-lg">
-                        <img src="/images/deped-xi-seal.png" class="h-16 w-16" alt="Schools Division Office Seal" />
+                        <img src="/images/office-seal.png" class="h-16 w-16" alt="Schools Division Office Seal" />
                     </div>
                 </Link>
                 <div class="h-14 w-px bg-white/30"></div>

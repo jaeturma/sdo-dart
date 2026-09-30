@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ArdAvailabilitySetting;
+use App\Models\AsdsAvailabilitySetting;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
-class ArdAvailabilitySettingController extends Controller
+class AsdsAvailabilitySettingController extends Controller
 {
     public function toggle(Request $request): RedirectResponse
     {
         abort_unless($request->user()->hasRole('admin'), 403);
 
-        $available = ArdAvailabilitySetting::toggle();
+        $available = AsdsAvailabilitySetting::toggle();
 
-        AuditLogger::log($request->user(), null, 'auth.ard_availability_toggled', $request, [
+        AuditLogger::log($request->user(), null, 'auth.asds_availability_toggled', $request, [
             'available' => $available,
         ]);
 

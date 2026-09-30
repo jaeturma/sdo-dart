@@ -28,7 +28,7 @@ class BackfillControlNumbersCommandTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'ard', 'rd', 'secretary', 'kmt_focal'] as $role) {
+        foreach (['admin', 'originator', 'unit_head', 'division_chief', 'asds', 'sds', 'secretary', 'kmt_focal'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -103,8 +103,8 @@ class BackfillControlNumbersCommandTest extends TestCase
 
     public function test_apply_resolves_parent_division_code_for_units_without_their_own_code(): void
     {
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $legalUnit = Division::create(['name' => 'Legal Unit', 'code' => null, 'parent_id' => $ord->id]);
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $legalUnit = Division::create(['name' => 'Legal Unit', 'code' => null, 'parent_id' => $osds->id]);
 
         $doc = $this->makeDocument('Legal unit legacy memo', '2026-03-01 09:00:00', $legalUnit);
 
@@ -112,7 +112,7 @@ class BackfillControlNumbersCommandTest extends TestCase
             ->expectsConfirmation('Assign control numbers to 1 document(s) now?', 'yes')
             ->assertExitCode(0);
 
-        $this->assertSame('OUTGOING-ORD-2026-03-001', $doc->fresh()->control_number);
+        $this->assertSame('OUTGOING-OSDS-2026-03-001', $doc->fresh()->control_number);
     }
 
     public function test_apply_does_not_touch_documents_that_already_have_a_control_number(): void

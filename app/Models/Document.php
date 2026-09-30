@@ -68,7 +68,7 @@ class Document extends Model
 
     /**
      * A document can end up with more than one signature row — e.g. an admin
-     * reverting status back to Approved after the secretary placed the RD's
+     * reverting status back to Approved after the secretary placed the SDS's
      * signature in the wrong spot, so it can be signed again correctly.
      * Old rows are never deleted (append-only, matching the rest of this
      * app's audit trail), so this must explicitly pick the most recent one

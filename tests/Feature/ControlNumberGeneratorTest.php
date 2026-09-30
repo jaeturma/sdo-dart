@@ -28,14 +28,14 @@ class ControlNumberGeneratorTest extends TestCase
         $this->assertSame('INCOMING-2026-07-001', $number);
     }
 
-    public function test_outgoing_falls_back_to_parent_code_for_ord_sub_units(): void
+    public function test_outgoing_falls_back_to_parent_code_for_osds_sub_units(): void
     {
-        $ord = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
-        $legalUnit = Division::create(['name' => 'Legal Unit', 'code' => null, 'parent_id' => $ord->id]);
+        $osds = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
+        $legalUnit = Division::create(['name' => 'Legal Unit', 'code' => null, 'parent_id' => $osds->id]);
 
         $number = ControlNumberGenerator::forOutgoing($legalUnit, Carbon::create(2026, 7, 1));
 
-        $this->assertSame('OUTGOING-ORD-2026-07-001', $number);
+        $this->assertSame('OUTGOING-OSDS-2026-07-001', $number);
     }
 
     public function test_outgoing_falls_back_to_parent_code_for_administrative_division_sub_units(): void

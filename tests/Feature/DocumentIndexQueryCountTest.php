@@ -27,7 +27,7 @@ class DocumentIndexQueryCountTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
+    private User $sds;
 
     private User $chief;
 
@@ -39,14 +39,14 @@ class DocumentIndexQueryCountTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'division_chief', 'rd'] as $role) {
+        foreach (['originator', 'division_chief', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
         $this->division = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->division->id]);
         $this->chief->assignRole('division_chief');
@@ -64,8 +64,8 @@ class DocumentIndexQueryCountTest extends TestCase
         ]);
 
         $routing = DocumentRouting::create([
-            'document_id' => $document->id, 'routed_by' => $this->rd->id,
-            'is_rush' => false, 'routed_at' => now(), 'is_rd_routing' => true,
+            'document_id' => $document->id, 'routed_by' => $this->sds->id,
+            'is_rush' => false, 'routed_at' => now(), 'is_sds_routing' => true,
         ]);
 
         DocumentRoutingRecipient::create([
@@ -84,7 +84,7 @@ class DocumentIndexQueryCountTest extends TestCase
 
         DB::enableQueryLog();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.index', ['tab' => 'incoming']))
             ->assertOk();
 
@@ -92,7 +92,7 @@ class DocumentIndexQueryCountTest extends TestCase
         DB::disableQueryLog();
 
         // Before the fix, DocumentPolicy::route() fired one exists() query
-        // per row for the RD (20 rows -> 20 extra queries on top of
+        // per row for the SDS (20 rows -> 20 extra queries on top of
         // everything else the page needs) — a regression back to that
         // would blow well past this cap.
         $this->assertLessThan(20, $queryCount, 'Query count for the Documents index page grew with the number of rows — check for a reintroduced N+1 in DocumentPolicy::review()/route().');

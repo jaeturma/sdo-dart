@@ -6,13 +6,13 @@ use App\Enums\DocumentStatus;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * App-wide switch for whether the ARD review stage is currently staffed.
+ * App-wide switch for whether the ASDS review stage is currently staffed.
  * When marked unavailable, outgoing documents skip straight from division
- * chief review to RD review so approvals aren't held up. Only affects future
- * transitions — a document already sitting at pending_ard_review is
+ * chief review to SDS review so approvals aren't held up. Only affects future
+ * transitions — a document already sitting at pending_asds_review is
  * unaffected by later toggles. Always exactly one row.
  */
-class ArdAvailabilitySetting extends Model
+class AsdsAvailabilitySetting extends Model
 {
     protected $fillable = ['available'];
 
@@ -33,10 +33,10 @@ class ArdAvailabilitySetting extends Model
 
     /**
      * Where a document goes after passing division-chief-level review —
-     * normally ARD, but straight to RD when ARD is marked unavailable.
+     * normally ASDS, but straight to SDS when ASDS is marked unavailable.
      */
     public static function nextAfterDivisionChief(): DocumentStatus
     {
-        return static::isAvailable() ? DocumentStatus::PendingArdReview : DocumentStatus::PendingRdReview;
+        return static::isAvailable() ? DocumentStatus::PendingAsdsReview : DocumentStatus::PendingSdsReview;
     }
 }

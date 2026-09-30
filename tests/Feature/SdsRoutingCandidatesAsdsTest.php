@@ -14,17 +14,17 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * The ARD should be offered as a routing recipient alongside division chiefs
- * and ORD unit heads (previously she wasn't a candidate at all), and listed
+ * The ASDS should be offered as a routing recipient alongside division chiefs
+ * and OSDS unit heads (previously she wasn't a candidate at all), and listed
  * first since she outranks everyone else in that list.
  */
-class RdRoutingCandidatesArdTest extends TestCase
+class SdsRoutingCandidatesAsdsTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $rd;
+    private User $sds;
 
-    private User $ard;
+    private User $asds;
 
     private User $chief;
 
@@ -34,17 +34,17 @@ class RdRoutingCandidatesArdTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'unit_head', 'division_chief', 'ard', 'rd'] as $role) {
+        foreach (['originator', 'unit_head', 'division_chief', 'asds', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $ordDivision = Division::create(['name' => 'Office of the Regional Director', 'code' => 'ORD']);
+        $osdsDivision = Division::create(['name' => 'Office of the Schools Division Superintendent', 'code' => 'OSDS']);
 
-        $this->rd = User::factory()->create(['division_id' => $ordDivision->id]);
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create(['division_id' => $osdsDivision->id]);
+        $this->sds->assignRole('sds');
 
-        $this->ard = User::factory()->create(['division_id' => $ordDivision->id]);
-        $this->ard->assignRole('ard');
+        $this->asds = User::factory()->create(['division_id' => $osdsDivision->id]);
+        $this->asds->assignRole('asds');
 
         $chiefDivision = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
         $this->chief = User::factory()->create(['division_id' => $chiefDivision->id]);
@@ -55,33 +55,33 @@ class RdRoutingCandidatesArdTest extends TestCase
     {
         return Document::create([
             'type' => DocumentType::Incoming, 'title' => 'Inbound memo',
-            'uploaded_by' => $this->rd->id, 'file_path' => 'incoming/a.pdf',
+            'uploaded_by' => $this->sds->id, 'file_path' => 'incoming/a.pdf',
             'file_hash' => hash('sha256', 'a'), 'status' => DocumentStatus::Received,
         ]);
     }
 
-    public function test_ard_is_offered_as_a_recipient_and_listed_first(): void
+    public function test_asds_is_offered_as_a_recipient_and_listed_first(): void
     {
         $document = $this->receivedDocument();
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->get(route('documents.routings.create', $document))
             ->assertInertia(fn ($page) => $page
-                ->where('users.0.id', $this->ard->id)
-                ->where('users.0.role', 'ard')
+                ->where('users.0.id', $this->asds->id)
+                ->where('users.0.role', 'asds')
                 ->where('users', fn ($users) => collect($users)->pluck('id')->contains($this->chief->id)));
     }
 
-    public function test_ard_does_not_see_herself_as_a_recipient(): void
+    public function test_asds_does_not_see_herself_as_a_recipient(): void
     {
         $document = $this->receivedDocument();
 
-        $response = $this->actingAs($this->ard)
+        $response = $this->actingAs($this->asds)
             ->get(route('documents.routings.candidates', $document))
             ->assertOk();
 
         $ids = collect($response->json('users'))->pluck('id');
-        $this->assertFalse($ids->contains($this->ard->id));
+        $this->assertFalse($ids->contains($this->asds->id));
         $this->assertTrue($ids->contains($this->chief->id));
     }
 }

@@ -11,10 +11,10 @@ use Illuminate\Support\Facades\Process;
  * credential — see that script's own docblock for why this replaces
  * FPDI/TCPDF for the actual cryptographic signing step (FPDI's page-import
  * mechanism never reads a source PDF's /AcroForm at all, so any signature
- * already in the file — an originator's own PNPKI, a prior RD signature —
+ * already in the file — an originator's own PNPKI, a prior SDS signature —
  * was structurally unreachable and got silently dropped every time).
  *
- * Shared between DocumentSigner (RD) and DocumentReleaseStamper (Records
+ * Shared between DocumentSigner (SDS) and DocumentReleaseStamper (Records
  * Section), the same way PdfNormalizer is already shared across multiple
  * upload call sites in this codebase — this wrapper's Process-building/
  * exit-code-translation/passfile-lifecycle logic is meaningfully larger and

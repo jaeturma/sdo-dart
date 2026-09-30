@@ -20,10 +20,10 @@ class DocumentSearchTest extends TestCase
     public function test_search_filters_documents_by_title_reference_and_uploader(): void
     {
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
-        Role::firstOrCreate(['name' => 'rd', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'sds', 'guard_name' => 'web']);
 
-        $rd = User::factory()->create();
-        $rd->assignRole('rd');
+        $sds = User::factory()->create();
+        $sds->assignRole('sds');
 
         $uploaderA = User::factory()->create(['name' => 'Jane Uploader']);
         $uploaderB = User::factory()->create(['name' => 'Someone Else']);
@@ -34,9 +34,9 @@ class DocumentSearchTest extends TestCase
             'uploaded_by' => $uploaderA->id,
             'file_path'   => 'outgoing/a.pdf',
             'file_hash'   => hash('sha256', 'a'),
-            // RD's Outgoing tab only shows documents that have cleared unit
+            // SDS's Outgoing tab only shows documents that have cleared unit
             // head/division chief review (see DocumentScopesTrait::outgoingScope()).
-            'status'      => DocumentStatus::PendingRdReview,
+            'status'      => DocumentStatus::PendingSdsReview,
         ]);
         Document::create([
             'type'             => DocumentType::Incoming,
@@ -49,21 +49,21 @@ class DocumentSearchTest extends TestCase
             'status'           => DocumentStatus::Received,
         ]);
 
-        $byTitle = $this->actingAs($rd)->get('/documents?tab=outgoing&search=Brigada');
+        $byTitle = $this->actingAs($sds)->get('/documents?tab=outgoing&search=Brigada');
         $byTitle->assertOk();
         $byTitle->assertInertia(fn ($page) => $page
             ->has('documents.data', 1)
             ->where('documents.data.0.title', 'Brigada Eskwela Memo'));
 
-        $byReference = $this->actingAs($rd)->get('/documents?tab=incoming&search=REF-2026-099');
+        $byReference = $this->actingAs($sds)->get('/documents?tab=incoming&search=REF-2026-099');
         $byReference->assertInertia(fn ($page) => $page
             ->has('documents.data', 1)
             ->where('documents.data.0.title', 'Unrelated memo'));
 
-        $byUploader = $this->actingAs($rd)->get('/documents?tab=outgoing&search=Jane');
+        $byUploader = $this->actingAs($sds)->get('/documents?tab=outgoing&search=Jane');
         $byUploader->assertInertia(fn ($page) => $page->has('documents.data', 1));
 
-        $noMatch = $this->actingAs($rd)->get('/documents?tab=outgoing&search=nonexistent-term');
+        $noMatch = $this->actingAs($sds)->get('/documents?tab=outgoing&search=nonexistent-term');
         $noMatch->assertInertia(fn ($page) => $page->has('documents.data', 0));
     }
 }

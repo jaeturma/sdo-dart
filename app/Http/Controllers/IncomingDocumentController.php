@@ -61,7 +61,7 @@ class IncomingDocumentController extends Controller
 
         $autoForwardFailed = false;
 
-        if ($request->user()->division?->code === 'ORDP') {
+        if (IncomingAutoForwarder::appliesTo($request->user())) {
             $autoForwardFailed = ! IncomingAutoForwarder::forward($document, $request->user(), $request);
         }
 
@@ -69,9 +69,9 @@ class IncomingDocumentController extends Controller
 
         if ($autoForwardFailed) {
             // Surface this immediately instead of letting it fail silently —
-            // a misconfigured/missing Records Section division means the
-            // document never gets routed and Records Section never sees it.
-            return $response->with('warning', 'Document uploaded, but could not be auto-forwarded to Records Section — that division is not configured correctly. Please notify an administrator; the document is still visible to the SDS.');
+            // with no Records Section designated, the document never gets
+            // routed and Records Section never sees it.
+            return $response->with('warning', 'Document uploaded, but could not be forwarded to Records Section — no office is designated as the Records Section yet. Please notify an administrator; the document is still visible to the SDS.');
         }
 
         return $response->with('success', 'Incoming document uploaded.');

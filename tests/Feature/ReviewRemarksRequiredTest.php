@@ -16,9 +16,9 @@ use Tests\TestCase;
 /**
  * ReviewDocumentRequest::rules() requires remarks for 'returned_for_revision'
  * and 'rejected' — 'for_comment' was missing from that list, which let a
- * reviewer (including the RD) submit "for comment" with empty remarks,
+ * reviewer (including the SDS) submit "for comment" with empty remarks,
  * leaving the originator nothing to act on. A real production row showed
- * exactly this: an RD review row with action=for_comment and remarks=''.
+ * exactly this: an SDS review row with action=for_comment and remarks=''.
  */
 class ReviewRemarksRequiredTest extends TestCase
 {
@@ -28,7 +28,7 @@ class ReviewRemarksRequiredTest extends TestCase
 
     private User $originator;
 
-    private User $rd;
+    private User $sds;
 
     private User $chief;
 
@@ -38,7 +38,7 @@ class ReviewRemarksRequiredTest extends TestCase
 
         $this->withoutMiddleware([EnsureTwoFactorEnabled::class, RestrictWeekendAccess::class]);
 
-        foreach (['originator', 'division_chief', 'rd'] as $role) {
+        foreach (['originator', 'division_chief', 'sds'] as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
@@ -47,8 +47,8 @@ class ReviewRemarksRequiredTest extends TestCase
         $this->originator = User::factory()->create(['division_id' => $this->division->id]);
         $this->originator->assignRole('originator');
 
-        $this->rd = User::factory()->create();
-        $this->rd->assignRole('rd');
+        $this->sds = User::factory()->create();
+        $this->sds->assignRole('sds');
 
         $this->chief = User::factory()->create(['division_id' => $this->division->id]);
         $this->chief->assignRole('division_chief');
@@ -64,32 +64,32 @@ class ReviewRemarksRequiredTest extends TestCase
         ]);
     }
 
-    public function test_rd_for_comment_with_empty_remarks_fails_validation(): void
+    public function test_sds_for_comment_with_empty_remarks_fails_validation(): void
     {
-        $document = $this->documentAt(DocumentStatus::PendingRdReview);
+        $document = $this->documentAt(DocumentStatus::PendingSdsReview);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'for_comment',
                 'remarks' => '',
             ])
             ->assertSessionHasErrors('remarks');
 
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->fresh()->status);
     }
 
-    public function test_rd_for_comment_with_whitespace_only_remarks_fails_validation(): void
+    public function test_sds_for_comment_with_whitespace_only_remarks_fails_validation(): void
     {
-        $document = $this->documentAt(DocumentStatus::PendingRdReview);
+        $document = $this->documentAt(DocumentStatus::PendingSdsReview);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'for_comment',
                 'remarks' => "   \n  ",
             ])
             ->assertSessionHasErrors('remarks');
 
-        $this->assertSame(DocumentStatus::PendingRdReview, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::PendingSdsReview, $document->fresh()->status);
     }
 
     public function test_division_chief_for_comment_with_empty_remarks_fails_validation(): void
@@ -108,9 +108,9 @@ class ReviewRemarksRequiredTest extends TestCase
 
     public function test_for_comment_with_real_remarks_succeeds(): void
     {
-        $document = $this->documentAt(DocumentStatus::PendingRdReview);
+        $document = $this->documentAt(DocumentStatus::PendingSdsReview);
 
-        $this->actingAs($this->rd)
+        $this->actingAs($this->sds)
             ->post(route('documents.reviews.store', $document), [
                 'action' => 'for_comment',
                 'remarks' => 'Please clarify the budget allocation.',

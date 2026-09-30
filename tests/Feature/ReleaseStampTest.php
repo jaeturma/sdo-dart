@@ -48,7 +48,7 @@ class ReleaseStampTest extends TestCase
         }
 
         $this->ad = Division::create(['name' => 'Administrative Division', 'code' => 'AD']);
-        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'parent_id' => $this->ad->id]);
+        $this->records = Division::create(['name' => 'Records Section', 'code' => 'RS', 'is_records_section' => true, 'parent_id' => $this->ad->id]);
 
         $this->recordsClerk = User::factory()->create(['division_id' => $this->records->id]);
         $this->recordsClerk->assignRole('originator');

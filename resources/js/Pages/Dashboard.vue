@@ -18,8 +18,8 @@ const STATUS_LABEL = {
     submitted:                     'Submitted',
     pending_unit_head_review:      'Pending Unit Head Review',
     pending_division_chief_review: 'Pending DC Review',
-    pending_ard_review:            'Pending Recommending Approval',
-    pending_rd_review:             'Pending SDS Review',
+    pending_asds_review:            'Pending Recommending Approval',
+    pending_sds_review:             'Pending SDS Review',
     approved:                      'Approved',
     for_comment:                   'For Comment',
     returned_for_revision:         'Returned',
@@ -39,8 +39,8 @@ const STATUS_CLASS = {
     submitted:                     'bg-yellow-100 text-yellow-800',
     pending_unit_head_review:      'bg-orange-100 text-orange-800',
     pending_division_chief_review: 'bg-yellow-100 text-yellow-800',
-    pending_ard_review:            'bg-indigo-100 text-indigo-800',
-    pending_rd_review:             'bg-indigo-100 text-indigo-800',
+    pending_asds_review:            'bg-indigo-100 text-indigo-800',
+    pending_sds_review:             'bg-indigo-100 text-indigo-800',
     approved:                      'bg-green-100 text-green-800',
     for_comment:                   'bg-amber-100 text-amber-800',
     returned_for_revision:         'bg-red-100 text-red-800',
@@ -59,15 +59,15 @@ const formatDate = d => d
     ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
     : '—';
 
-const showBreakdown = computed(() => hasRole('admin', 'rd', 'ard', 'division_chief', 'unit_head'));
+const showBreakdown = computed(() => hasRole('admin', 'sds', 'asds', 'division_chief', 'unit_head'));
 
 const OUTGOING_PIPELINE = [
     'draft',
     'submitted',
     'pending_unit_head_review',
     'pending_division_chief_review',
-    'pending_ard_review',
-    'pending_rd_review',
+    'pending_asds_review',
+    'pending_sds_review',
     'approved',
     'for_comment',
     'pending_signature',
