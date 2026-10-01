@@ -288,7 +288,18 @@ def build_composite_stamp_image(esig_image_path, signer_name, signed_at_text, in
     if not include_details:
         return esig_image  # natural aspect ratio, full box width - matches Sign.vue's "Plain" style
 
-    pixels_per_point = 4
+    # 8, not 4: the embedded PDF data at 4px/pt is byte-perfect (verified by
+    # extracting the actual embedded image object and comparing pixel
+    # values directly against the source), but a typical PDF viewer
+    # rendering a small placement (e.g. an 8-20%-wide release stamp) at
+    # ordinary screen resolution (~150dpi-equivalent) anti-aliases thin
+    # e-sig/stamp detail down toward the page background more than the old
+    # TCPDF pipeline's embedding did - confirmed by rendering the identical
+    # output at 600dpi, where the color comes back almost exactly to the
+    # source. Doubling the internal resolution here gives the viewer more
+    # source detail to anti-alias from, measurably narrowing (not fully
+    # closing) that gap, for a modest embedded-image size increase.
+    pixels_per_point = 8
     canvas_width = max(1, int(sig_width_points * pixels_per_point))
 
     mm_per_point = 1 / 2.834645669291339  # 25.4mm / 72pt
