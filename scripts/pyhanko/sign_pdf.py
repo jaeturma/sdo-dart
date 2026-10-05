@@ -30,10 +30,11 @@ import os
 import sys
 import tempfile
 import traceback
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from PIL import Image, ImageDraw, ImageFont
-from pyhanko.pdf_utils import generic
+from pyhanko.pdf_utils import generic, layout
 from pyhanko.pdf_utils import writer as pyhanko_writer
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.images import PdfImage
@@ -135,13 +136,77 @@ def load_signer(p12_path, passfile_path):
     return signer
 
 
-def get_page_boxes(pdf_path):
+@dataclass(frozen=True)
+class PageGeometry:
     """
-    Returns an ordered list of (width, height) in PDF points, one per page,
-    walking the page tree and inheriting /MediaBox from ancestor /Pages
-    nodes when a leaf page doesn't define its own - a plain
+    A page's visible area in default user space (`llx`/`lly`/`urx`/`ury`,
+    PDF points, bottom-left origin) plus its normalized /Rotate (0, 90, 180
+    or 270, clockwise when displayed).
+
+    Sign.vue/ReleaseStamp.vue position placements on the page *as pdf.js
+    displays it* - i.e. already rotated by /Rotate and clipped to the
+    CropBox - so every percent coming in from PHP is relative to that
+    displayed page, not to the raw MediaBox. Scanned documents commonly
+    store an upright portrait page as a landscape MediaBox plus
+    `/Rotate 270` (a real production document did exactly this): treating
+    the percentages as raw-MediaBox-relative put the signature on the wrong
+    part of the page, drawn sideways.
+    """
+
+    llx: float
+    lly: float
+    urx: float
+    ury: float
+    rotation: int
+
+    @property
+    def display_width(self):
+        w = self.urx - self.llx
+        return (self.ury - self.lly) if self.rotation in (90, 270) else w
+
+    @property
+    def display_height(self):
+        h = self.ury - self.lly
+        return (self.urx - self.llx) if self.rotation in (90, 270) else h
+
+    def display_to_user(self, u, v):
+        """
+        Maps a point on the displayed page (`u` points from its left edge,
+        `v` points from its top edge) back into default user space - the
+        inverse of the viewport transform pdf.js applies when rendering
+        (see its PageViewport), so it matches exactly what the secretary saw.
+        """
+        if self.rotation == 90:
+            return self.llx + v, self.lly + u
+        if self.rotation == 180:
+            return self.urx - u, self.lly + v
+        if self.rotation == 270:
+            return self.urx - v, self.ury - u
+        return self.llx + u, self.ury - v
+
+
+def normalize_rotation(value):
+    try:
+        rotation = int(value) % 360
+    except (TypeError, ValueError):
+        return 0
+    return rotation if rotation in (0, 90, 180, 270) else 0
+
+
+def normalize_box(box):
+    x1, y1, x2, y2 = (float(c) for c in box)
+    return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+
+
+def get_page_geometries(pdf_path):
+    """
+    Returns an ordered list of PageGeometry, one per page, walking the page
+    tree and inheriting /MediaBox, /CropBox and /Rotate from ancestor
+    /Pages nodes when a leaf page doesn't define its own - a plain
     root['/Pages']['/Kids'] walk isn't enough for PDFs with a nested page
-    tree or an inherited (rather than per-page) MediaBox.
+    tree or inherited (rather than per-page) attributes. The visible area is
+    the CropBox clipped to the MediaBox, the same region pdf.js renders
+    (its `page.view`).
 
     strict=False (see also sign_one_placement()'s IncrementalPdfFileWriter):
     a real production PDF was found to have a malformed xref entry for
@@ -155,28 +220,50 @@ def get_page_boxes(pdf_path):
     content to lose. This is a different, narrower class of non-compliant
     PDF than PdfNormalizer/mutool's compressed-xref-stream problem.
     """
-    boxes = []
+    pages = []
+    inheritable = ('/MediaBox', '/CropBox', '/Rotate')
 
-    def walk(node, inherited_box):
-        box = node.get('/MediaBox', inherited_box)
+    def walk(node, inherited):
+        # `node[key]`, not `node.get(key)`: pyhanko's DictionaryObject only
+        # dereferences indirect objects in __getitem__, and dict.get()
+        # bypasses it.
+        inherited = {key: (node[key] if key in node else inherited[key]) for key in inheritable}
         node_type = node.get('/Type')
         if node_type == '/Pages' or '/Kids' in node:
             for kid_ref in node['/Kids']:
-                walk(kid_ref.get_object(), box)
+                walk(kid_ref.get_object(), inherited)
         else:
-            boxes.append(box)
+            pages.append(inherited)
 
     with open(pdf_path, 'rb') as f:
         reader = PdfFileReader(f, strict=False)
-        walk(reader.root['/Pages'], None)
+        walk(reader.root['/Pages'], {'/MediaBox': None, '/CropBox': None, '/Rotate': 0})
 
-    return [(float(b[2]) - float(b[0]), float(b[3]) - float(b[1])) for b in boxes]
+        geometries = []
+        for attrs in pages:
+            # US Letter is the spec's fallback when a (non-compliant) page
+            # has no MediaBox anywhere in its ancestry.
+            media = normalize_box(attrs['/MediaBox']) if attrs['/MediaBox'] is not None else (0.0, 0.0, 612.0, 792.0)
+            visible = media
+            if attrs['/CropBox'] is not None:
+                crop = normalize_box(attrs['/CropBox'])
+                clipped = (max(media[0], crop[0]), max(media[1], crop[1]),
+                           min(media[2], crop[2]), min(media[3], crop[3]))
+                if clipped[2] > clipped[0] and clipped[3] > clipped[1]:
+                    visible = clipped
+            geometries.append(PageGeometry(*visible, rotation=normalize_rotation(attrs['/Rotate'])))
+
+    return geometries
 
 
-def placement_box(page_width, page_height, x_percent, y_percent, width_percent, height_ratio):
+def placement_box(geometry, x_percent, y_percent, width_percent, height_ratio):
     """
     Converts the percent-based, top-left-origin placement Sign.vue collects
-    into pyhanko's absolute-point, bottom-left-origin box. `height_ratio`
+    (relative to the page as displayed - see PageGeometry) into pyhanko's
+    absolute-point, bottom-left-origin box in default user space. On a
+    rotated page the returned box's width/height are swapped relative to
+    what's displayed; RotationAwareStampStyle compensates for that when
+    drawing the appearance. `height_ratio`
     (height/width) must match the *actual* aspect ratio of whatever will be
     drawn in this box (see build_composite_stamp_image()) - a fixed ratio
     here (an earlier version used a flat 0.35, copied from the old TCPDF
@@ -185,13 +272,14 @@ def placement_box(page_width, page_height, x_percent, y_percent, width_percent, 
     image's own proportions, which is exactly what made the box Sign.vue
     previews not match what actually got drawn.
     """
-    sig_w = (width_percent / 100.0) * page_width
+    sig_w = (width_percent / 100.0) * geometry.display_width
     sig_h = sig_w * height_ratio
-    x1 = (x_percent / 100.0) * page_width
-    x2 = x1 + sig_w
-    y2 = page_height - (y_percent / 100.0) * page_height
-    y1 = y2 - sig_h
-    return x1, y1, x2, y2
+    u1 = (x_percent / 100.0) * geometry.display_width
+    v1 = (y_percent / 100.0) * geometry.display_height
+
+    xa, ya = geometry.display_to_user(u1, v1)
+    xb, yb = geometry.display_to_user(u1 + sig_w, v1 + sig_h)
+    return min(xa, xb), min(ya, yb), max(xa, xb), max(ya, yb)
 
 
 def format_signed_at(iso_timestamp):
@@ -360,17 +448,64 @@ def find_font(size):
     return ImageFont.load_default()
 
 
-def build_stamp_style(composite):
+@dataclass(frozen=True)
+class RotationAwareStampStyle(TextStampStyle):
+    """
+    A widget's appearance stream is drawn in the page's *unrotated* user
+    space, so on a page with /Rotate it gets rotated right along with the
+    page when displayed - the signature showed up sideways on a
+    `/Rotate 270` scan. pyhanko has no handling for this (its only knob,
+    VisibleSigSettings.rotate_with_page=False, sets the NoRotate flag, which
+    pivots the widget around its corner and is inconsistently honored by
+    viewers). Instead, lay the stamp out in the *displayed* orientation
+    (width/height swapped back for 90/270) and give the form XObject a
+    /Matrix that counter-rotates it by the page's rotation; per ISO 32000-1
+    § 12.5.5 the viewer then fits the rotated BBox into the widget's /Rect,
+    so after the page itself is rotated the stamp reads upright.
+    """
+
+    page_rotation: int = 0
+
+    def create_stamp(self, writer, box, text_params):
+        if self.page_rotation in (90, 270):
+            box = layout.BoxConstraints(width=box.height, height=box.width)
+
+        stamp = super().create_stamp(writer, box, text_params)
+
+        if self.page_rotation:
+            build_form_xobject = stamp.as_form_xobject
+            rotation = self.page_rotation
+
+            def rotated_form_xobject():
+                xobj = build_form_xobject()
+                w, h = stamp.box.width, stamp.box.height
+                # Counter-clockwise rotation by `rotation` degrees, translated
+                # so the rotated BBox sits back at the origin.
+                matrix = {
+                    90: (0, 1, -1, 0, h, 0),
+                    180: (-1, 0, 0, -1, w, h),
+                    270: (0, -1, 1, 0, 0, w),
+                }[rotation]
+                xobj['/Matrix'] = generic.ArrayObject(list(map(generic.FloatObject, matrix)))
+                return xobj
+
+            stamp.as_form_xobject = rotated_form_xobject
+
+        return stamp
+
+
+def build_stamp_style(composite, page_rotation):
     background = None
     if composite is not None:
         background = PdfImage(composite)
 
-    return TextStampStyle(
+    return RotationAwareStampStyle(
         background=background,
         background_opacity=1.0,
         border_width=0,
         stamp_text='',
         text_box_style=TextBoxStyle(font_size=8),
+        page_rotation=page_rotation,
     )
 
 
@@ -388,7 +523,7 @@ def sign_one_placement(source_path, output_path, signer, stamp_style,
     pdf_signer = PdfSigner(meta, signer, stamp_style=stamp_style, new_field_spec=field_spec)
 
     with open(source_path, 'rb') as inf:
-        # strict=False: see get_page_boxes()'s docstring - a source file
+        # strict=False: see get_page_geometries()'s docstring - a source file
         # that reader could only open leniently would fail identically here
         # otherwise, since this is the same underlying xref parser.
         writer = IncrementalPdfFileWriter(inf, strict=False)
@@ -408,7 +543,7 @@ def main():
 
     signer = load_signer(args.p12, args.passfile)
 
-    page_boxes = get_page_boxes(args.input)
+    page_geometries = get_page_geometries(args.input)
     signed_at_text = format_signed_at(args.signed_at)
 
     current_input = args.input
@@ -417,10 +552,10 @@ def main():
     try:
         for i, placement in enumerate(placements):
             page_number = int(placement['page'])
-            page_index = max(0, min(page_number - 1, len(page_boxes) - 1))
-            page_width, page_height = page_boxes[page_index]
+            page_index = max(0, min(page_number - 1, len(page_geometries) - 1))
+            geometry = page_geometries[page_index]
 
-            sig_width_points = (float(placement['width_percent']) / 100.0) * page_width
+            sig_width_points = (float(placement['width_percent']) / 100.0) * geometry.display_width
 
             # Built per-placement, not once for the whole call: font sizing
             # is anchored to this specific placement's real width in points
@@ -434,10 +569,10 @@ def main():
                 args.esig_image, args.signer_name, signed_at_text, args.include_details, sig_width_points,
             )
             height_ratio = (composite.height / composite.width) if composite is not None else 0.35
-            stamp_style = build_stamp_style(composite)
+            stamp_style = build_stamp_style(composite, geometry.rotation)
 
             box = placement_box(
-                page_width, page_height,
+                geometry,
                 float(placement['x_percent']), float(placement['y_percent']),
                 float(placement['width_percent']), height_ratio,
             )

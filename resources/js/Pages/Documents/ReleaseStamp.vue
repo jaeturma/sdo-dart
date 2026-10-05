@@ -25,7 +25,7 @@ const loading      = ref(true);
 const pdfError     = ref(null);
 
 // ── Stamp overlay state ──────────────────────────────────────────────────────
-const stampBox = ref({ left: 30, top: 70, width: 20 }); // percent values, relative to canvas
+const stampBox = ref({ left: 30, top: 70, width: 30 }); // percent values, relative to canvas
 const isDragging   = ref(false);
 const isResizing   = ref(false);
 const dragStart    = ref({ mx: 0, my: 0, bLeft: 0, bTop: 0 });
@@ -38,7 +38,7 @@ const form = useForm({
     stamp_page:           1,
     stamp_x_percent:      30,
     stamp_y_percent:      70,
-    stamp_width_percent:  20,
+    stamp_width_percent:  30,
 });
 
 const submitRelease = () => form.post(route('documents.release.store', props.document.id));
