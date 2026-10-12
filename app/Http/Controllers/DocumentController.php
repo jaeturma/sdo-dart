@@ -262,9 +262,11 @@ class DocumentController extends Controller
         // requests for local files, which pdf.js relies on to progressively
         // fetch pages instead of downloading the whole file before it can
         // render anything.
-        return response()->file($disk->path($document->file_path), [
+        $response = response()->file($disk->path($document->file_path), [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="'.basename($document->file_path).'"',
         ]);
+
+        return $this->revalidateOnEveryView($response, $request, $document->file_hash);
     }
 }

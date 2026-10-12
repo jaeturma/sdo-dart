@@ -20,6 +20,7 @@ use App\Http\Controllers\OriginatorUploadSettingController;
 use App\Http\Controllers\OutgoingDocumentController;
 use App\Http\Controllers\PasswordPolicyController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReleasedDocumentLogController;
 use App\Http\Controllers\SigningCredentialController;
 use App\Http\Controllers\TwoFactorSettingController;
 use App\Http\Controllers\UserController;
@@ -68,6 +69,10 @@ Route::middleware(['auth', 'email.verified.enforced', 'password.change.required'
     // Records Section: printable daily log of incoming documents by date (must also come before {document} wildcard)
     Route::get('/documents/incoming-log', [IncomingDocumentLogController::class, 'index'])
         ->name('documents.incoming-log');
+
+    // Records Section: printable daily log + statistics of released documents (same {document} wildcard caveat)
+    Route::get('/documents/released-log', [ReleasedDocumentLogController::class, 'index'])
+        ->name('documents.released-log');
 
     // Document detail and routing form (routing form is a child of {document})
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');

@@ -431,6 +431,13 @@ watch(showPreviewModal, (open) => {
                     >
                         Incoming Log
                     </Link>
+                    <Link
+                        v-if="isRecordsSection"
+                        :href="route('documents.released-log')"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-4 focus:ring-gray-200"
+                    >
+                        Released Log
+                    </Link>
                 </div>
             </div>
         </template>

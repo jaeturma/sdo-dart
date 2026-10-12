@@ -35,6 +35,8 @@ final class PyhankoPdfSigner
      * @param  string  $writeFailureMessage  Caller-specific wording for an output-write failure (e.g. disk full) —
      *                                       kept as a parameter so DocumentSigner/DocumentReleaseStamper can each
      *                                       keep their own existing exact message text.
+     * @param  float  $imageWidthRatio  With $includeDetails: share of the box width given to the e-sig image.
+     * @param  float  $detailsFontScale  With $includeDetails: details font size in pt per mm of box width.
      *
      * @throws \RuntimeException
      */
@@ -51,6 +53,8 @@ final class PyhankoPdfSigner
         \DateTimeInterface $signedAt,
         string $outputAbsolutePath,
         string $writeFailureMessage,
+        float $imageWidthRatio = 0.4,
+        float $detailsFontScale = 0.15,
     ): void {
         $this->ensurePyhankoAvailable();
 
@@ -87,6 +91,10 @@ final class PyhankoPdfSigner
 
             if ($includeDetails) {
                 $command[] = '--include-details';
+                $command[] = '--image-width-ratio';
+                $command[] = (string) $imageWidthRatio;
+                $command[] = '--details-font-scale';
+                $command[] = (string) $detailsFontScale;
             }
 
             $result = Process::timeout(120)->run($command);

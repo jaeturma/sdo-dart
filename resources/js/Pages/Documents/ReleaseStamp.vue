@@ -219,15 +219,30 @@ const certExpired = computed(() => {
     return new Date(props.credential.certificate_valid_until) < new Date();
 });
 
-// Mirrors Documents/Sign.vue's detailsFontSizePx (itself mirroring
-// sign_pdf.py's build_composite_stamp_image() font formula) — the release
-// stamp always includes the "Digitally signed by / Date" text
+// The release stamp always includes the "Digitally signed by / Date" text
 // (DocumentReleaseStamper::stamp() hardcodes includeDetails: true), so this
 // preview must always account for it too, not just when a toggle is on.
+// Mirrors DocumentReleaseStamper::stampLayout(): the image gets 60% of the
+// box, narrowed for tall images so it's never taller than 53% of the box
+// width, and the details font is 0.136 × the image's height, counting at
+// most 40% of the box width of it (so a tall signature stands about as tall
+// as its text block). Until the image loads, falls back to 60% and
+// FALLBACK_DETAILS_FONT_SCALE (0.10pt/mm ≈ 0.035 × box width).
+const esigAspect = ref(null); // natural height / width, known once the preview image loads
+const onEsigLoad = (e) => {
+    const { naturalWidth: w, naturalHeight: h } = e.target;
+    if (w > 0 && h > 0) esigAspect.value = h / w;
+};
+const imageWidthPercent = computed(() =>
+    esigAspect.value ? Math.min(60, 53 / esigAspect.value) : 60
+);
 const detailsFontSizePx = computed(() => {
     const boxWidthPx = (stampBox.value.width / 100) * pageWidth.value;
+    const size = esigAspect.value
+        ? 0.136 * Math.min((imageWidthPercent.value / 100) * esigAspect.value, 0.4) * boxWidthPx
+        : 0.035 * boxWidthPx;
 
-    return Math.max(4, Math.min(16, boxWidthPx * 0.05));
+    return Math.max(4, Math.min(16, size));
 });
 
 const formatDate = d => d
@@ -332,18 +347,19 @@ const formatDate = d => d
                                         @mousedown="onStampMouseDown"
                                         @touchstart="onStampTouchStart"
                                     >
-                                        <!-- Mark on the left ~40%, "Digitally signed by..." text filling the rest —
-                                             mirrors the actual printed layout, since the release stamp always
-                                             includes these details (see detailsFontSizePx above). -->
-                                        <div class="flex items-start gap-1 pointer-events-none select-none">
+                                        <!-- Mark on the left (see imageWidthPercent), "Digitally signed by..."
+                                             text filling the rest — mirrors the actual printed layout, since the
+                                             release stamp always includes these details (see detailsFontSizePx above). -->
+                                        <div class="flex items-center gap-1 pointer-events-none select-none">
                                             <img
                                                 v-if="esigUrl"
                                                 :src="esigUrl"
                                                 class="h-auto shrink-0 block"
-                                                style="width: 40%"
+                                                :style="{ width: imageWidthPercent + '%' }"
                                                 alt="Release stamp"
+                                                @load="onEsigLoad"
                                             />
-                                            <div v-else class="flex h-10 shrink-0 items-center justify-center text-[10px] text-emerald-600 font-medium" style="width: 40%">
+                                            <div v-else class="flex h-10 shrink-0 items-center justify-center text-[10px] text-emerald-600 font-medium" style="width: 60%">
                                                 [Release Stamp]
                                             </div>
                                             <div class="min-w-0 leading-tight text-gray-800" :style="{ fontSize: detailsFontSizePx + 'px' }">

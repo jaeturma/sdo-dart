@@ -166,6 +166,48 @@ class ResubmissionTest extends TestCase
         Storage::disk('documents')->assertExists($document->file_path);
     }
 
+    /**
+     * The reported bug: after resubmitting, the uploader (and reviewers)
+     * still saw the original PDF. documents/{id}/file keeps the same URL
+     * across a resubmission, and it used to be served `Cache-Control: public`
+     * with no max-age, so browsers heuristically reused their cached copy of
+     * the superseded file without ever asking the server.
+     */
+    public function test_file_endpoint_serves_the_resubmitted_file_to_a_browser_holding_the_original(): void
+    {
+        Notification::fake();
+        Storage::fake('documents');
+
+        $document = $this->createDocumentAt(DocumentStatus::ReturnedForRevision);
+        Storage::disk('documents')->put($document->file_path, '%PDF-1.4 original bytes');
+        $document->update(['file_hash' => hash('sha256', '%PDF-1.4 original bytes')]);
+
+        $original = $this->actingAs($this->originator)->get(route('documents.file', $document));
+        $original->assertOk();
+        $this->assertTrue($original->headers->hasCacheControlDirective('no-cache'));
+        $this->assertTrue($original->headers->hasCacheControlDirective('private'));
+        $this->assertFalse($original->headers->hasCacheControlDirective('public'));
+
+        $this->actingAs($this->originator)
+            ->put(route('documents.outgoing.resubmit.update', $document), [
+                'title' => 'Corrected Title',
+                'description' => 'Corrected description',
+                'file' => UploadedFile::fake()->createWithContent('corrected.pdf', '%PDF-1.4 corrected bytes'),
+            ])
+            ->assertRedirect(route('documents.show', $document));
+
+        // The browser revalidates its cached original — it must get the new
+        // file back, not a 304 telling it to keep using the original.
+        $revalidated = $this->actingAs($this->originator)->get(route('documents.file', $document), [
+            'If-None-Match' => $original->headers->get('ETag'),
+            'If-Modified-Since' => $original->headers->get('Last-Modified'),
+        ]);
+
+        $revalidated->assertOk();
+        $this->assertSame('%PDF-1.4 corrected bytes', $revalidated->streamedContent());
+        $this->assertNotSame($original->headers->get('ETag'), $revalidated->headers->get('ETag'));
+    }
+
     public function test_resubmit_still_succeeds_and_logs_a_warning_if_the_old_file_cannot_be_deleted(): void
     {
         Notification::fake();

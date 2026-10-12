@@ -245,7 +245,7 @@ class DocumentSignatureController extends Controller
             str_replace('%', '', Str::ascii($filename)),
         );
 
-        return $response;
+        return $this->revalidateOnEveryView($response, $request, $sig->signed_file_hash);
     }
 
     /**

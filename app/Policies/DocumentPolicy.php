@@ -197,6 +197,18 @@ class DocumentPolicy
     }
 
     /**
+     * Can the user view/print the daily Released Documents Log (and its
+     * release statistics) — every outgoing document released on a given
+     * date, from any division? The same audience and the same kind of
+     * read-only reporting grant as viewIncomingLog(), so it simply defers
+     * to it; split them if the two audiences ever need to differ.
+     */
+    public function viewReleasedLog(User $user): bool
+    {
+        return $this->viewIncomingLog($user);
+    }
+
+    /**
      * The SDS's own secretary — identified by the `secretary` role plus
      * sitting in the OSDS division tree (OSDS itself, or a direct sub-unit
      * like OSDS Proper). She's treated as acting in lieu of the SDS for

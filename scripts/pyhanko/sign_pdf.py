@@ -109,6 +109,10 @@ def parse_args():
     p.add_argument('--location', default='')
     p.add_argument('--signed-at', required=True, help='ISO 8601 timestamp')
     p.add_argument('--include-details', action='store_true')
+    p.add_argument('--image-width-ratio', type=float, default=0.4,
+                    help='Share of the box width given to the e-sig image when --include-details is set')
+    p.add_argument('--details-font-scale', type=float, default=0.15,
+                    help='Details font size in pt per mm of box width (clamped to [4, 14]pt)')
     return p.parse_args()
 
 
@@ -335,11 +339,12 @@ def wrap_text_lines(draw, logical_lines, font, max_width_px):
     return wrapped
 
 
-def build_composite_stamp_image(esig_image_path, signer_name, signed_at_text, include_details, sig_width_points):
+def build_composite_stamp_image(esig_image_path, signer_name, signed_at_text, include_details, sig_width_points,
+                                image_width_ratio=0.4, details_font_scale=0.15):
     """
     Builds a single transparent-background RGBA image for the stamp
-    appearance - image on the left ~40% of the box, "Digitally signed by /
-    Date:" text filling the rest, mirroring DocumentSigner.php's original
+    appearance - image on the left `image_width_ratio` (default ~40%) of the
+    box, "Digitally signed by / Date:" text filling the rest, mirroring DocumentSigner.php's original
     TCPDF layout (image-left, details-text-right) exactly, rather than
     relying on pyhanko's own auto-centered stamp-text-over-background
     layout, which draws the text on top of the whole box instead of beside
@@ -370,6 +375,12 @@ def build_composite_stamp_image(esig_image_path, signer_name, signed_at_text, in
     had it shrunk anyway once the fixed size didn't fit the box's fixed 60%
     text column. Wrapping (wrap_text_lines()) handles whatever doesn't fit
     on one line at this size, same as TCPDF's MultiCell() always did.
+
+    `image_width_ratio`/`details_font_scale` default to that original layout
+    (the SDS's signature); DocumentReleaseStamper overrides both so Records
+    Section's stamp image - a scanned rubber stamp whose fine lettering
+    blurs when small - gets most of the box, with correspondingly smaller
+    details text. ReleaseStamp.vue's preview mirrors those overrides.
     """
     esig_image = to_rgba(Image.open(esig_image_path)) if esig_image_path else None
 
@@ -391,10 +402,10 @@ def build_composite_stamp_image(esig_image_path, signer_name, signed_at_text, in
     canvas_width = max(1, int(sig_width_points * pixels_per_point))
 
     mm_per_point = 1 / 2.834645669291339  # 25.4mm / 72pt
-    font_size_points = max(4.0, min(14.0, (sig_width_points * mm_per_point) * 0.15))
+    font_size_points = max(4.0, min(14.0, (sig_width_points * mm_per_point) * details_font_scale))
     font_size_px = max(1, int(font_size_points * pixels_per_point))
 
-    image_width = int(canvas_width * 0.4)
+    image_width = int(canvas_width * image_width_ratio)
     gap = int(canvas_width * 0.02)
     text_x = image_width + gap
     text_width = max(1, canvas_width - text_x)
@@ -403,7 +414,9 @@ def build_composite_stamp_image(esig_image_path, signer_name, signed_at_text, in
     image_height = 0
     if esig_image is not None:
         scale = image_width / esig_image.width
-        resized = esig_image.resize((image_width, max(1, int(esig_image.height * scale))))
+        # LANCZOS rather than Pillow's default BICUBIC: sharper on the
+        # small lettering of a scanned stamp, whichever way it's scaled.
+        resized = esig_image.resize((image_width, max(1, int(esig_image.height * scale))), Image.LANCZOS)
         image_height = resized.height
 
     logical_lines = ['Digitally signed by', signer_name, f'Date: {signed_at_text}']
@@ -567,6 +580,7 @@ def main():
             # gets drawn.
             composite = build_composite_stamp_image(
                 args.esig_image, args.signer_name, signed_at_text, args.include_details, sig_width_points,
+                args.image_width_ratio, args.details_font_scale,
             )
             height_ratio = (composite.height / composite.width) if composite is not None else 0.35
             stamp_style = build_stamp_style(composite, geometry.rotation)

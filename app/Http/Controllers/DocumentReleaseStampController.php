@@ -197,7 +197,7 @@ class DocumentReleaseStampController extends Controller
             str_replace('%', '', Str::ascii($filename)),
         );
 
-        return $response;
+        return $this->revalidateOnEveryView($response, $request, $stamp->stamped_file_hash);
     }
 
     /**
